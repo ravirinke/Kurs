@@ -13,12 +13,14 @@ Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design
 ## Commands
 
 `pnpm dev` · `pnpm test` · `pnpm typecheck` · `pnpm lint` · `pnpm format` · `pnpm db:start` / `db:stop`
-All of `test`, `typecheck` and `lint` must pass before a phase is done.
+`pnpm db:reset` (fresh DB + seed) · `pnpm db:seed` · `pnpm test:db` (needs Supabase running) · `pnpm db:generate`
+All of `test`, `typecheck`, `lint` and `test:db` must pass before a phase is done.
 
 ## Layout
 
 - `packages/core`: all business logic (trading, FX, market hours, valuation, leaderboard, visibility, corporate actions, `PriceProvider`). **Pure TypeScript, no I/O**, no Next.js, React or database imports (enforced by ESLint). Shared with the future Expo app.
-- `packages/db`: Drizzle schema, migrations, RLS policies, seed.
+- `packages/db`: Drizzle schema (`src/schema`), repositories, services (`createQuote`, `executeTrade`, `createLeague`, `joinLeague`, `decideJoinRequest`, `updateLeague`), seed, mock provider factory. Integration tests in `packages/db/test`.
+- `supabase/migrations`: SQL migrations. Tables are generated from the Drizzle schema (`pnpm db:generate`); security (RLS, grants, triggers, SQL functions) is a hand-written custom migration (`pnpm --filter @aksjeliga/db db:generate:custom --name=...`). Never edit a migration that has been applied; add a new one.
 - `packages/config`: shared tsconfig / ESLint / Prettier / Vitest.
 - `apps/web`: Next.js App Router. Thin layer: server actions or route handlers call `core`.
 - One `.env` in the repo root (see `.env.example`), loaded by `apps/web/next.config.ts` and `packages/db/drizzle.config.ts`.
@@ -33,6 +35,16 @@ All of `test`, `typecheck` and `lint` must pass before a phase is done.
 6. **Price data only through `PriceProvider`.** Nothing else knows which provider is in use.
 7. **Time:** store UTC. Exchange hours are defined in the exchange's local time (IANA zone) and computed with Luxon. Never use the machine's local time zone in logic.
 8. **Visibility** is one function in `core`, enforced on the server and with RLS, never only in the UI.
+
+## Database rules
+
+- Browsers/apps only ever READ (RLS + column grants). Every write goes through a server service using the direct connection (which bypasses RLS), so services must enforce the rules via `core`.
+- Use `asUser(db, userId, fn)` to run a query with RLS as that user.
+- The visibility rule exists in `core` AND as SQL (`public.portfolio_access_rule`). Change both together; `test/visibility-parity.test.ts` checks they agree.
+- `transactions` is append-only (trigger blocks UPDATE/DELETE/TRUNCATE). Fix mistakes with a new correcting event, never by editing.
+- Numeric columns have no fixed scale; CHECK constraints reject too many decimals instead of rounding silently.
+- Lock order in a trade: member row (`FOR UPDATE`), then quote. Keep it that way to avoid deadlocks.
+- Test users inserted straight into `auth.users` need `` (not NULL) in the token columns, or Supabase Auth breaks.
 
 ## Product rules worth remembering
 

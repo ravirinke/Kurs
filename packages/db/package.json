@@ -8,20 +8,27 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:db": "vitest run --config vitest.db.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "seed": "tsx src/seed/run.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:generate:custom": "drizzle-kit generate --custom"
   },
   "dependencies": {
     "@aksjeliga/core": "workspace:*",
-    "drizzle-orm": "^0.45.4"
+    "@supabase/supabase-js": "^2.118.0",
+    "drizzle-orm": "^0.45.4",
+    "luxon": "^3.7.2",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@aksjeliga/config": "workspace:*",
+    "@types/luxon": "^3.7.6",
     "@types/node": "^24.12.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.39.5",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"
   }

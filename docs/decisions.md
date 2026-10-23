@@ -72,3 +72,21 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 
 - After the start, only **name, description and end time** can change. Everything else is locked: currency, start amount, start time, fees, allowed exchanges, visibility and max position share. (Already implemented in `validateLeagueUpdate`.)
 - The end time can be moved both earlier and later, as long as it is in the future and after the allowed exchanges close that day.
+
+## 2026-10-23 – Phase 3: database
+
+- **Migrations:** the Drizzle schema (`packages/db/src/schema`) is the source of truth for tables; `drizzle-kit generate` writes SQL straight into `supabase/migrations` with Supabase's timestamp naming, so `supabase db reset` applies everything. Security (RLS, grants, triggers, SQL functions) is a hand-written custom migration, kept readable in one file.
+- **Numeric columns are unconstrained `numeric` with CHECK constraints on `scale()`** (amounts 2, prices 4, FX 6, quantities 6). `numeric(p,s)` would silently round a wrong value; a CHECK makes it fail loudly. Values cross into TypeScript only as strings.
+- **Read-only clients.** `anon` gets nothing; `authenticated` gets SELECT only, through RLS. Every write goes through server services in `packages/db` (direct connection, bypasses RLS) that apply the rules from `core`.
+- **Column-level grants hide** a member's cash balance and last trade time, and the cash in snapshots. Ranks, returns and values are visible to league members; the server builds the leaderboard.
+- **The visibility rule is duplicated in SQL** (`public.portfolio_access_rule`) for RLS. A parity test runs every combination through both. Delayed visibility in RLS shows transactions older than 24 h by the database clock; the holdings cache is only readable with full access, and delayed holdings are rebuilt server-side from visible transactions.
+- **Transactions are append-only**: a trigger blocks UPDATE, DELETE and TRUNCATE, even for the server. Consequence: leagues with transactions cannot be deleted; deleting user data (GDPR) will need a deliberate design later.
+- **Trade execution** (`executeTrade`): one DB transaction; lock the member row (`FOR UPDATE`), check the idempotency key (same key + same quote returns the original result; same key + other quote is refused), lock the quote and require it unused, replay the member's events through `core` and validate with fresh market status, then append the event, mark the quote used and rewrite the cache. Validation uses the replayed events, not the cache.
+- **Known trade-off:** the PriceProvider is called (market status, and valuation for the max-share rule) while the member lock is held. Fine with the mock; with a slow real API, fetch what can be fetched before the transaction.
+- **Rejected quotes are not stored.** Quotes are single-use (`used_at`).
+- **League status is not a stored column**: derived from the times, with `finalized_at` marking that the final result has been written (the brief's "stored at finalization").
+- **Joining is serialised per league** (row lock on the league), so double clicks cannot add a member twice; a partial unique index allows one pending join request per user and league.
+- **Invite codes:** 8 characters without look-alikes (no 0/O, 1/I/L), case-insensitive, spaces and dashes ignored.
+- **Instruments have UUID ids.** Mock base prices live in the seed catalogue keyed by ISIN; `createMockPriceProvider(db, …)` builds the provider from the database.
+- **Seed:** test users via the Supabase Auth admin API (real, can sign in); the test league's trades go through the real `createQuote`/`executeTrade` at past market hours. Re-running the seed leaves existing data alone.
+- **Database tests run separately** (`pnpm test:db`, needs `pnpm db:start`) so `pnpm test` works without Docker. Each test creates its own users and leagues. The concurrency tests were checked by removing `FOR UPDATE` (they fail) and the RLS tests by loosening a policy (they fail).

@@ -15,7 +15,11 @@
     "format:check": "prettier --check .",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:status": "supabase status"
+    "db:status": "supabase status",
+    "test:db": "pnpm --filter @aksjeliga/db test:db",
+    "db:reset": "supabase db reset && pnpm db:seed",
+    "db:seed": "pnpm --filter @aksjeliga/db seed",
+    "db:generate": "pnpm --filter @aksjeliga/db db:generate"
   },
   "prettier": "@aksjeliga/config/prettier",
   "devDependencies": {
