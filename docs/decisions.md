@@ -63,3 +63,12 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
   - Approved members get the full start amount, deposited at the approval time.
   - Nobody can join or be approved after the league has finished; declining is still possible. A request still pending at the end simply stays unapproved.
   - People with a pending request are not members and see nothing of the league's portfolios.
+
+## 2026-10-23 – Start amount (product owner)
+
+- The league owner picks the currency and types any start amount (> 0, ≤ 1 000 000 000, at most 2 decimals). The form is prefilled with a suggestion per currency (`DEFAULT_START_AMOUNT`: NOK/SEK 100 000, DKK 75 000, EUR/USD 10 000) that can be overwritten.
+
+## 2026-10-23 – Locked fields confirmed (product owner)
+
+- After the start, only **name, description and end time** can change. Everything else is locked: currency, start amount, start time, fees, allowed exchanges, visibility and max position share. (Already implemented in `validateLeagueUpdate`.)
+- The end time can be moved both earlier and later, as long as it is in the future and after the allowed exchanges close that day.

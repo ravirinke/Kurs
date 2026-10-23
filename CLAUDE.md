@@ -8,7 +8,7 @@ Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design
 - Work **one phase at a time** (phases in `docs/oppdrag.md` §7). Stop after each phase, summarize what was done, the choices made and what to test, then wait for approval.
 - If something is unclear or conflicting, ask instead of guessing. Record clarifications in `docs/decisions.md`.
 - Talk to the product owner in Norwegian. Code, identifiers, comments and commits are in English.
-- Commit and push after each completed phase.
+- **Never commit or push without the product owner's explicit permission**, each time. When a phase is done, say it is ready to commit and wait.
 
 ## Commands
 
