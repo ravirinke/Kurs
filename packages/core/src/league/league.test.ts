@@ -4,7 +4,7 @@ import { EXCHANGES, OSLO_BORS } from "../market";
 import { decimal, Money } from "../money";
 import { instant } from "../time";
 
-import { checkJoin, startingDeposit } from "./membership";
+import { checkJoin, checkJoinDecision, startingDeposit } from "./membership";
 import {
   defaultLeagueSettings,
   suggestEndTime,
@@ -71,8 +71,6 @@ describe("defaults", () => {
   it("match the brief", () => {
     const defaults = defaultLeagueSettings("SEK", EXCHANGES);
     expect(defaults.visibility).toBe("delayed");
-    expect(defaults.lateJoinAllowed).toBe(true);
-    expect(defaults.maxMembers).toBe(50);
     expect(defaults.maxPositionShare).toBeNull();
     expect(defaults.allowedExchangeIds).toEqual(["XOSL", "XSTO", "XCSE", "XNAS", "XNYS"]);
     expect(defaults.feeRule.minimum.toString()).toBe("29 SEK");
@@ -115,8 +113,6 @@ describe("validateLeagueSettings", () => {
     [{ allowedExchangeIds: ["XOSL", "XLON"] }, "UNKNOWN_EXCHANGE"],
     [{ startsAt: instant("2026-10-23T09:00:00Z") }, "START_IN_PAST"],
     [{ endsAt: instant("2026-10-23T09:59:00Z") }, "END_BEFORE_START"],
-    [{ maxMembers: 1 }, "MAX_MEMBERS_INVALID"],
-    [{ maxMembers: 2.5 }, "MAX_MEMBERS_INVALID"],
     [{ maxPositionShare: decimal("0") }, "MAX_POSITION_SHARE_INVALID"],
     [{ maxPositionShare: decimal("1.1") }, "MAX_POSITION_SHARE_INVALID"],
   ] as const)("rejects %o with %s", (overrides, code) => {
@@ -212,41 +208,74 @@ describe("validateLeagueUpdate", () => {
 describe("joining", () => {
   const base = {
     league: league({ startsAt: instant("2026-11-01T00:00:00Z") }),
-    memberCount: 3,
     isAlreadyMember: false,
+    hasPendingRequest: false,
   };
+  const duringLeague = instant("2026-11-10T00:00:00Z");
 
-  it("is allowed before the start", () => {
-    expect(checkJoin({ ...base, now })).toEqual([]);
+  it("is direct before the start", () => {
+    expect(checkJoin({ ...base, now })).toEqual({ ok: true, mode: "direct" });
   });
 
-  it("is allowed late by default", () => {
-    expect(checkJoin({ ...base, now: instant("2026-11-10T00:00:00Z") })).toEqual([]);
+  it("needs the owner's approval after the start", () => {
+    expect(checkJoin({ ...base, now: duringLeague })).toEqual({ ok: true, mode: "needs_approval" });
   });
 
-  it("is refused late when late joining is off", () => {
-    const strict = { ...base, league: { ...base.league, lateJoinAllowed: false } };
-    expect(checkJoin({ ...strict, now: instant("2026-11-10T00:00:00Z") })).toEqual([
-      { code: "LATE_JOIN_DISABLED" },
-    ]);
+  it("refuses a second request while one is pending", () => {
+    expect(checkJoin({ ...base, hasPendingRequest: true, now: duringLeague })).toEqual({
+      ok: false,
+      rejection: { code: "ALREADY_REQUESTED" },
+    });
   });
 
   it("is refused after the end", () => {
-    expect(checkJoin({ ...base, now: instant("2026-11-27T21:00:00Z") })).toEqual([
-      { code: "LEAGUE_FINISHED" },
-    ]);
-  });
-
-  it("is refused when the league is full", () => {
-    expect(checkJoin({ ...base, memberCount: 50, now })).toEqual([
-      { code: "LEAGUE_FULL", maxMembers: 50 },
-    ]);
+    expect(checkJoin({ ...base, now: instant("2026-11-27T21:00:00Z") })).toEqual({
+      ok: false,
+      rejection: { code: "LEAGUE_FINISHED" },
+    });
   });
 
   it("is refused for existing members", () => {
-    expect(checkJoin({ ...base, isAlreadyMember: true, now })).toEqual([
-      { code: "ALREADY_MEMBER" },
-    ]);
+    expect(checkJoin({ ...base, isAlreadyMember: true, now })).toEqual({
+      ok: false,
+      rejection: { code: "ALREADY_MEMBER" },
+    });
+  });
+
+  it("has no member limit", () => {
+    expect("maxMembers" in defaultLeagueSettings("NOK", EXCHANGES)).toBe(false);
+  });
+
+  describe("approving a late join", () => {
+    const decide = (overrides: Partial<Parameters<typeof checkJoinDecision>[0]> = {}) =>
+      checkJoinDecision({
+        league: base.league,
+        request: { status: "pending" },
+        deciderId: "ola",
+        decision: "approve",
+        now: duringLeague,
+        ...overrides,
+      });
+
+    it("is allowed for the owner", () => {
+      expect(decide()).toBeNull();
+      expect(decide({ decision: "decline" })).toBeNull();
+    });
+
+    it("is refused for anyone else", () => {
+      expect(decide({ deciderId: "kari" })).toEqual({ code: "NOT_OWNER" });
+    });
+
+    it("is refused for a request that was already decided", () => {
+      expect(decide({ request: { status: "approved" } })).toEqual({ code: "REQUEST_NOT_PENDING" });
+      expect(decide({ request: { status: "declined" } })).toEqual({ code: "REQUEST_NOT_PENDING" });
+    });
+
+    it("is refused after the end, but declining is still possible", () => {
+      const after = instant("2026-11-27T21:00:00Z");
+      expect(decide({ now: after })).toEqual({ code: "LEAGUE_FINISHED" });
+      expect(decide({ now: after, decision: "decline" })).toBeNull();
+    });
   });
 
   it("gives late members the full start amount", () => {

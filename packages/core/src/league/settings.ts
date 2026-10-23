@@ -9,9 +9,6 @@ import { deriveLeagueStatus } from "./status";
 import type { League, LeagueSettings, Visibility } from "./types";
 
 export const DEFAULT_VISIBILITY: Visibility = "delayed";
-export const DEFAULT_MAX_MEMBERS = 50;
-export const MIN_MEMBERS = 2;
-export const MAX_MEMBERS_LIMIT = 1000;
 export const MAX_NAME_LENGTH = 60;
 export const MAX_DESCRIPTION_LENGTH = 500;
 /** Upper bound on the fee rate a league can set (5 %). */
@@ -38,8 +35,6 @@ export function defaultLeagueSettings(
     visibility: DEFAULT_VISIBILITY,
     allowedExchangeIds: exchanges.map((exchange) => exchange.id),
     feeRule: defaultFeeRule(currency),
-    lateJoinAllowed: true,
-    maxMembers: DEFAULT_MAX_MEMBERS,
     maxPositionShare: null,
   };
 }
@@ -57,7 +52,6 @@ export type LeagueSettingsError =
   | { code: "END_BEFORE_START" }
   | { code: "END_IN_PAST" }
   | { code: "END_BEFORE_MARKET_CLOSE"; exchangeId: ExchangeId; closesAt: DateTime }
-  | { code: "MAX_MEMBERS_INVALID"; min: number; max: number }
   | { code: "MAX_POSITION_SHARE_INVALID" }
   | { code: "FIELD_LOCKED"; field: keyof LeagueSettings }
   | { code: "LEAGUE_FINISHED" };
@@ -166,14 +160,6 @@ export function validateLeagueSettings(
   if (settings.endsAt.toMillis() <= settings.startsAt.toMillis())
     errors.push({ code: "END_BEFORE_START" });
   errors.push(...validateEndTime(settings.endsAt, selected));
-
-  if (
-    !Number.isInteger(settings.maxMembers) ||
-    settings.maxMembers < MIN_MEMBERS ||
-    settings.maxMembers > MAX_MEMBERS_LIMIT
-  ) {
-    errors.push({ code: "MAX_MEMBERS_INVALID", min: MIN_MEMBERS, max: MAX_MEMBERS_LIMIT });
-  }
 
   const share = settings.maxPositionShare;
   if (share !== null && (!share.greaterThan(0) || share.greaterThan(1))) {

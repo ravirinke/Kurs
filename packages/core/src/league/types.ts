@@ -23,8 +23,6 @@ export interface LeagueSettings {
   visibility: Visibility;
   allowedExchangeIds: readonly ExchangeId[];
   feeRule: FeeRule;
-  lateJoinAllowed: boolean;
-  maxMembers: number;
   /** Fraction of portfolio value, e.g. 0.25. Null when off. */
   maxPositionShare: Decimal | null;
 }

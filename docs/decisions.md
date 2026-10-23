@@ -53,3 +53,13 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 - **Mock prices** follow smooth deterministic noise per instrument (weekly, daily, hourly and 5-minute components), roughly ±10 % around a base price, with 2-decimal ticks. FX drifts by a fraction of a percent. JS numbers are used only for these random multipliers, never for amounts. Prices before a split are multiplied by the split factor as seen at query time. The mock does not drop the price on a dividend's ex-date.
 - **core never reads the clock** (`Date.now`, `new Date()`, `DateTime.now/local/utc` are lint errors); never calls `toNumber()`, `parseFloat` or `Math.random`.
 - **Rejections are codes, not text** (`INSUFFICIENT_CASH`, `MARKET_CLOSED`, …); the web app maps them to Norwegian.
+
+## 2026-10-23 – Membership changes (product owner)
+
+- **No member limit.** The brief's "max members" setting (default 50) is removed.
+- **Late joining always requires the owner's approval.** Replaces the brief's "late join" on/off setting:
+  - Before the start: joining with the invite link or code is direct.
+  - After the start: joining creates a pending request. Only the league owner can approve or decline it, once.
+  - Approved members get the full start amount, deposited at the approval time.
+  - Nobody can join or be approved after the league has finished; declining is still possible. A request still pending at the end simply stays unapproved.
+  - People with a pending request are not members and see nothing of the league's portfolios.

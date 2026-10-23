@@ -39,7 +39,8 @@ All of `test`, `typecheck` and `lint` must pass before a phase is done.
 - Single cash balance per member, in the league currency. Whole shares only.
 - Trading only in regular exchange hours. Market orders only (keep room for limit orders later).
 - Max position share is checked on buy only.
-- Leaderboard ties: oldest last trade (or join time if no trades) ranks higher.
+- Leaderboard ties: oldest last trade ranks higher; tied members who never traded share the place (several winners possible).
+- No member limit. Joining is direct before the start; after the start it needs the owner's approval.
 
 ## UI
 
