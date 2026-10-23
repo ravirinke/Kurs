@@ -9,4 +9,5 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 - **Whole shares only.** Fractional shares are not supported, and there is no league setting for it (the brief proposed a setting defaulting to off; the product owner chose to drop it). Quantity is still stored as `numeric` so this can be revisited without a migration of existing data.
 - **Dividends are credited without withholding tax.**
 - **Leaderboard tie-break for members without trades:** their join time is used as their "last trade" time. Rule: equal return % → the member whose last trade (or join time, if no trades) is oldest ranks higher.
+- **Max position share is checked on buy only.** A buy is rejected if the resulting position would exceed the limit, valued at quote time. Sells are never blocked, and a position that grows past the limit through price movement is allowed.
 - **Local Supabase requires Docker Desktop** (being installed by the product owner).
