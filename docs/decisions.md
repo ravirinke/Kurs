@@ -25,3 +25,31 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 - **Supabase Storage is disabled locally** (not used yet). Auth emails go to Mailpit; `site_url` is `http://localhost:3000`.
 - **Dark mode** follows the OS by default; `class="dark"` / `class="light"` on `<html>` overrides it. Both the colour tokens and Tailwind's `dark:` variant use the same rule.
 - **Vitest runs with `TZ=UTC`** so tests never depend on the developer's machine time zone.
+
+## 2026-10-23 – Phase 2 clarifications
+
+- **FX precision:** a quote locks the FX rate rounded half-up to **6 decimals**, and that exact rate is used in the calculation and stored on the transaction. Two decimals (as Nordnet displays) were rejected: e.g. NOK→USD 0.0922 → 0.09 would misprice by 2.4 %. Display: 2 decimals when the rate is ≥ 1, 4 when < 1; the trade breakdown shows the full locked rate so the user can verify it.
+- **Prices** are locked with up to 4 decimals (half-up).
+- **Booked amounts:** gross = quantity × price × locked FX, rounded half-up to 2 decimals. Fee = max(gross × fee rate, minimum), rounded half-up to 2 decimals. Buy total = gross + fee; sell proceeds = gross − fee.
+- **Reverse split with a fractional result** (whole shares only): the member keeps the whole shares and receives the fraction as cash ("cash in lieu") at the last close before the split, converted at that close's FX rate.
+- **Average cost includes brokerage fees**, in the league currency.
+- **Ranking** uses portfolio value rounded to whole øre (2 decimals) and the return computed from it.
+- **Tie-break (replaces the brief's rule only for the no-trade case):** equal return → the member whose last trade is **oldest** ranks higher (protects the original against a copycat, who always trades later). Members with equal return who have never traded **share** the place, and rank after tied members who have traded. Members equal on both return and last-trade time also share. Standard competition ranking (1, 1, 3). A shared first place gives several winners.
+- **Max position share** uses the portfolio value at quote time (before the trade) as the denominator.
+- **A sell whose fee exceeds the proceeds** is rejected if it would make cash negative.
+- **League end time:** for every allowed exchange, if that exchange has a session on the end time's local date, the end time must be at or after that session's close.
+- **"Finished"** is derived as soon as `now ≥ endsAt` (trading stops). Final results are written once by the finalization job and never recomputed.
+- **Leaderboard returns are live for all visibility levels**; visibility only governs holdings and trades.
+- **Dividend eligibility:** quantity held at the start of the ex-date (exchange local time). Paid on the pay date at that day's FX rate.
+
+## 2026-10-23 – Phase 2 implementation notes
+
+- **Locked after start: everything except name, description and end time.** The brief lists currency, start amount, fee rules and exchanges as locked; we also lock visibility, late join, max members and max position share, since changing them mid-league is unfair or leaks information. Sending an unchanged locked field is accepted (forms post everything).
+- **Default start amounts:** NOK 100 000, SEK 100 000, DKK 75 000, EUR 10 000, USD 10 000.
+- **Exchange IDs are MIC codes:** XOSL, XSTO, XCSE, XNAS, XNYS. Reference data (hours, holidays, half days) lives in `packages/core/src/market/exchanges.ts` and will seed the database.
+- **⚠️ Holidays and half days for 2026–2027 were entered manually from memory and MUST be verified against the official calendars** of Oslo Børs (Euronext), Nasdaq Nordic and NYSE/Nasdaq before going live. Uncertain entries include Oslo Børs' half day on the Wednesday before Easter and Stockholm's half days (Jan 5, Apr 30, the day before Ascension, the Friday before All Saints).
+- **Sessions are [open, close)**: a trade at exactly the closing time is rejected.
+- **Quote validity is [createdAt, createdAt + 15 s)**.
+- **Mock prices** follow smooth deterministic noise per instrument (weekly, daily, hourly and 5-minute components), roughly ±10 % around a base price, with 2-decimal ticks. FX drifts by a fraction of a percent. JS numbers are used only for these random multipliers, never for amounts. Prices before a split are multiplied by the split factor as seen at query time. The mock does not drop the price on a dividend's ex-date.
+- **core never reads the clock** (`Date.now`, `new Date()`, `DateTime.now/local/utc` are lint errors); never calls `toNumber()`, `parseFloat` or `Math.random`.
+- **Rejections are codes, not text** (`INSUFFICIENT_CASH`, `MARKET_CLOSED`, …); the web app maps them to Norwegian.

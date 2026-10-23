@@ -26,6 +26,13 @@ export const baseConfig = tseslint.config(
     },
   },
   {
+    // Tests may assert on values they know are present.
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+    },
+  },
+  {
     files: ["**/*.js", "**/*.mjs", "**/*.cjs"],
     ...tseslint.configs.disableTypeChecked,
   },
