@@ -1,4 +1,4 @@
-# Designprinsipper – Aksjeliga (arbeidsnavn)
+# Designprinsipper – Kurs (arbeidsnavn)
 
 Status: utkast fra fase 0. Oppdateres når vi bygger UI i fase 4.
 
@@ -145,6 +145,6 @@ Regler for opp/ned:
 
 ## 6. Navn og tekst
 
-- Appnavnet («Aksjeliga») ligger kun i `apps/web/src/i18n/nb.ts` (eller tilsvarende) og leses derfra overalt.
+- Appnavnet («Kurs») ligger kun i `apps/web/src/i18n/nb.ts` (eller tilsvarende) og leses derfra overalt.
 - All UI-tekst ligger i samme modul, strukturert per område (`league.*`, `trade.*`, `market.*` …).
 - Tone: vennlig og direkte, du-form. Avvisninger forklarer årsak og neste steg («Børsen stengte før du bekreftet. Hent ny pris når den åpner i morgen 09:00.»).

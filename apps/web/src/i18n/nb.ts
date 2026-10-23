@@ -4,7 +4,7 @@
  */
 export const nb = {
   app: {
-    name: "Aksjeliga",
+    name: "Kurs",
     tagline: "Konkurrer med vennene dine på ekte aksjer – med fiktive penger.",
     fakeMoney: "Fiktive penger",
     fakeMoneyExplainer: "Alle beløp i appen er fiktive. Ingen ekte penger handles.",

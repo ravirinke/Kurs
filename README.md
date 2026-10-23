@@ -1,7 +1,7 @@
-# Aksjeliga
+# Kurs
 
 En app der venner konkurrerer i ligaer ved å handle ekte aksjer med **fiktive penger**.
-Arbeidsnavnet «Aksjeliga» ligger i `apps/web/src/i18n/nb.ts` og kan byttes der.
+Arbeidsnavnet «Kurs» ligger i `apps/web/src/i18n/nb.ts` og kan byttes der.
 
 - Oppdraget: [`docs/oppdrag.md`](docs/oppdrag.md)
 - Design: [`docs/design.md`](docs/design.md)

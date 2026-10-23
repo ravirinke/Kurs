@@ -117,3 +117,7 @@ Technical:
 - **Root `.env` loading:** `@next/env`'s `loadEnvConfig` caches the env Next already loaded for `apps/web` and silently ignored the root `.env`; `next.config.ts` now uses `process.loadEnvFile`, and passes the public Supabase values through `env` so the proxy gets them.
 - **Local Supabase auth rate limits raised** (`email_sent` was 2 per hour), or testing with several users was impossible.
 - End-to-end tests with Playwright (`pnpm test:e2e`) on a mobile viewport. Each run creates its own users.
+
+## 2026-10-23 – App name
+
+- The app is now called **Kurs** (was the working name "Aksjeliga"). Only the user-facing name changed (`nb.app.name`, README, design doc). Internal identifiers (`@aksjeliga/*` package scope, Supabase project id, cookie names) stay as they are.
