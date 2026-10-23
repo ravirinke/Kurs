@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+.next/
+.turbo/
+node_modules/
+dist/
+coverage/
+supabase/.temp/
+docs/oppdrag.md

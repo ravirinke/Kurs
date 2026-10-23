@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* dark: utilities follow the same rule as the tokens below: OS preference, overridable via class. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * Design tokens. Source of truth: docs/design.md §3.
+ * Light is the default; dark follows the OS, and can be forced with class="dark" / "light" on <html>.
+ * Names follow shadcn/ui so generated components pick them up.
+ */
+:root {
+  --radius: 0.75rem;
+
+  --background: #f7f6f2;
+  --foreground: #16181d;
+  --card: #ffffff;
+  --card-foreground: #16181d;
+  --popover: #ffffff;
+  --popover-foreground: #16181d;
+  --muted: #eeece6;
+  --muted-foreground: #5e636e;
+  --border: #e2dfd7;
+  --input: #e2dfd7;
+  --ring: #4b3fd1;
+
+  --primary: #4b3fd1;
+  --primary-foreground: #ffffff;
+  --secondary: #eeece6;
+  --secondary-foreground: #16181d;
+  --accent: #eeece6;
+  --accent-foreground: #16181d;
+  --destructive: #c62828;
+
+  --gold: #b7860b;
+  --positive: #15803d;
+  --negative: #c62828;
+  --warning: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #0f1115;
+    --foreground: #f2f2f0;
+    --card: #181b21;
+    --card-foreground: #f2f2f0;
+    --popover: #181b21;
+    --popover-foreground: #f2f2f0;
+    --muted: #22262e;
+    --muted-foreground: #9aa0ab;
+    --border: #2a2e37;
+    --input: #2a2e37;
+    --ring: #8e86ff;
+
+    --primary: #8e86ff;
+    --primary-foreground: #0f1115;
+    --secondary: #22262e;
+    --secondary-foreground: #f2f2f0;
+    --accent: #22262e;
+    --accent-foreground: #f2f2f0;
+    --destructive: #ff6b6b;
+
+    --gold: #e8b931;
+    --positive: #3dd68c;
+    --negative: #ff6b6b;
+    --warning: #f5a524;
+  }
+}
+
+:root.dark {
+  --background: #0f1115;
+  --foreground: #f2f2f0;
+  --card: #181b21;
+  --card-foreground: #f2f2f0;
+  --popover: #181b21;
+  --popover-foreground: #f2f2f0;
+  --muted: #22262e;
+  --muted-foreground: #9aa0ab;
+  --border: #2a2e37;
+  --input: #2a2e37;
+  --ring: #8e86ff;
+
+  --primary: #8e86ff;
+  --primary-foreground: #0f1115;
+  --secondary: #22262e;
+  --secondary-foreground: #f2f2f0;
+  --accent: #22262e;
+  --accent-foreground: #f2f2f0;
+  --destructive: #ff6b6b;
+
+  --gold: #e8b931;
+  --positive: #3dd68c;
+  --negative: #ff6b6b;
+  --warning: #f5a524;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-inter), ui-sans-serif, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-gold: var(--gold);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Numbers line up in columns and don't jump when they update. */
+    font-variant-numeric: tabular-nums;
+  }
+}
