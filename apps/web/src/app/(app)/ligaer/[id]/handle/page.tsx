@@ -1,11 +1,12 @@
 import { Money } from "@aksjeliga/core";
 import { loadInstrumentQuotes, loadTradingHome } from "@aksjeliga/db";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AutoRefresh } from "@/components/auto-refresh";
+import { BackLink } from "@/components/back-link";
 import { InstrumentRow } from "@/components/instrument-row";
 import { type Mover, Movers } from "@/components/movers";
 import { MarketStatusBadge } from "@/components/status-badges";
@@ -57,12 +58,7 @@ export default async function TradingPage({
   return (
     <div className="flex flex-col gap-6">
       <AutoRefresh enabled={home.exchanges.some((entry) => entry.status.isOpen)} />
-      <Link
-        href={`/ligaer/${id}` as Route}
-        className="text-muted-foreground flex items-center gap-1 text-sm"
-      >
-        <ChevronLeft aria-hidden className="size-4" /> {league.name}
-      </Link>
+      <BackLink href={`/ligaer/${id}` as Route}>{league.name}</BackLink>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="font-display text-3xl font-bold tracking-tight">{t.trade.title}</h1>
         <p className="text-sm">

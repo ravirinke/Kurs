@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { decideJoinRequestAction } from "@/app/actions/leagues";
 import { ActionButton } from "@/components/action-button";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { BackLink } from "@/components/back-link";
 import { LeaderboardTable, Podium } from "@/components/leaderboard-table";
 import { type Mover, Movers } from "@/components/movers";
 import { ShareInvite } from "@/components/share-invite";
@@ -65,6 +66,7 @@ export default async function LeaguePage({
   return (
     <div className="flex flex-col gap-6">
       <AutoRefresh enabled={status === "active"} />
+      <BackLink href="/">{t.nav.myLeagues}</BackLink>
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-display text-3xl font-bold tracking-tight">{league.name}</h1>

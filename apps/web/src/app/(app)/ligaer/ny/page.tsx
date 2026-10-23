@@ -2,6 +2,7 @@ import { APP_TIME_ZONE, DEFAULT_MINIMUM_FEE, DEFAULT_START_AMOUNT } from "@aksje
 import { loadExchanges } from "@aksjeliga/db";
 import type { Metadata } from "next";
 
+import { BackLink } from "@/components/back-link";
 import { t } from "@/i18n";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
@@ -17,6 +18,7 @@ export default async function CreateLeaguePage() {
   const exchanges = await loadExchanges(getDb());
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
+      <BackLink href="/">{t.nav.myLeagues}</BackLink>
       <h1 className="font-display text-3xl font-bold tracking-tight">{t.createLeague.title}</h1>
       <CreateLeagueForm
         nowIso={now.toISO() ?? ""}

@@ -1,8 +1,6 @@
 import { APP_TIME_ZONE, deriveLeagueStatus } from "@aksjeliga/core";
 import { loadActiveMembers } from "@aksjeliga/db";
-import { ChevronLeft } from "lucide-react";
 import type { Metadata, Route } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -11,6 +9,7 @@ import {
   removeMemberAction,
 } from "@/app/actions/leagues";
 import { ActionButton } from "@/components/action-button";
+import { BackLink } from "@/components/back-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { t } from "@/i18n";
 import { serverNow } from "@/server/clock";
@@ -32,12 +31,7 @@ export default async function LeagueSettingsPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
-      <Link
-        href={`/ligaer/${id}` as Route}
-        className="text-muted-foreground flex items-center gap-1 text-sm"
-      >
-        <ChevronLeft aria-hidden className="size-4" /> {league.name}
-      </Link>
+      <BackLink href={`/ligaer/${id}` as Route}>{league.name}</BackLink>
       <h1 className="font-display text-3xl font-bold tracking-tight">{t.settings.title}</h1>
 
       <Card>

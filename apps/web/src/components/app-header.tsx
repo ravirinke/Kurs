@@ -24,7 +24,11 @@ export function AppHeader({
         </Link>
       )}
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
-        <Link href="/" className="font-display text-xl font-bold tracking-tight">
+        <Link
+          href="/"
+          title={t.nav.goHome}
+          className="font-display hover:bg-muted hover:text-primary focus-visible:ring-ring -mx-3 rounded-full px-3 py-1 text-xl font-bold tracking-tight transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        >
           {t.app.name}
         </Link>
         <div className="flex items-center gap-2">

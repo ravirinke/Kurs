@@ -18,6 +18,7 @@ export const nb = {
   },
   nav: {
     myLeagues: "Mine ligaer",
+    goHome: "Til Mine ligaer",
     profile: "Profil",
     back: "Tilbake",
   },

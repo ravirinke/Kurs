@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { clearTimeTravel, setTimeTravel } from "@/app/actions/profile";
 import { signOut } from "@/app/actions/auth";
+import { BackLink } from "@/components/back-link";
 import { DisplayNameForm } from "@/components/display-name-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6">
+      <BackLink href="/">{t.nav.myLeagues}</BackLink>
       <h1 className="font-display text-3xl font-bold tracking-tight">{t.profile.title}</h1>
       <Card>
         <CardHeader>

@@ -1,11 +1,11 @@
 import { convert, deriveLeagueStatus, Money, ZERO } from "@aksjeliga/core";
 import { CHART_PERIODS, type ChartPeriod, loadInstrumentDetail } from "@aksjeliga/db";
-import { ChevronLeft } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AutoRefresh } from "@/components/auto-refresh";
+import { BackLink } from "@/components/back-link";
 import { Change } from "@/components/change";
 import { PriceChart } from "@/components/price-chart";
 import { MarketStatusBadge } from "@/components/status-badges";
@@ -62,12 +62,7 @@ export default async function InstrumentPage({
   return (
     <div className="flex flex-col gap-6 pb-20 sm:pb-0">
       <AutoRefresh enabled={status.isOpen} />
-      <Link
-        href={`/ligaer/${id}/handle` as Route}
-        className="text-muted-foreground flex items-center gap-1 text-sm"
-      >
-        <ChevronLeft aria-hidden className="size-4" /> {t.trade.title}
-      </Link>
+      <BackLink href={`/ligaer/${id}/handle` as Route}>{t.trade.title}</BackLink>
 
       <header className="flex flex-col gap-2">
         <span className="bg-muted w-fit rounded-full px-3 py-1 text-xs font-medium">

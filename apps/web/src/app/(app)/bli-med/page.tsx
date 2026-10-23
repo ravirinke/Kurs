@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { BackLink } from "@/components/back-link";
 import { JoinForm } from "@/components/join-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { t } from "@/i18n";
@@ -11,6 +12,7 @@ export default async function JoinPage() {
   await requireProfile("/bli-med");
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6">
+      <BackLink href="/">{t.nav.myLeagues}</BackLink>
       <Card>
         <CardHeader>
           <CardTitle as="h1" className="font-display text-2xl">

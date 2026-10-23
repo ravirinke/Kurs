@@ -1,5 +1,5 @@
 import type { PortfolioView as PortfolioData } from "@aksjeliga/db";
-import { ChevronLeft, EyeOff } from "lucide-react";
+import { EyeOff } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -16,6 +16,7 @@ import {
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { BackLink } from "./back-link";
 import { Change } from "./change";
 import { PriceChart } from "./price-chart";
 
@@ -65,12 +66,7 @@ export function PortfolioView({ view, leagueId }: { view: PortfolioData; leagueI
 
   return (
     <div className="flex flex-col gap-8">
-      <Link
-        href={`/ligaer/${leagueId}` as Route}
-        className="text-muted-foreground flex items-center gap-1 text-sm"
-      >
-        <ChevronLeft aria-hidden className="size-4" /> {view.league.name}
-      </Link>
+      <BackLink href={`/ligaer/${leagueId}` as Route}>{view.league.name}</BackLink>
 
       <header className="flex flex-col gap-1">
         <h1 className="text-muted-foreground text-sm font-medium">{title}</h1>
