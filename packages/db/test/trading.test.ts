@@ -200,14 +200,14 @@ describe("executeTrade", () => {
     expect(holding?.quantity).toBe("4");
   });
 
-  it("rejects a quote confirmed after 15 seconds", async () => {
+  it("rejects a quote confirmed after 30 seconds", async () => {
     const { userId, leagueId } = await freshMember();
     const quote = await quoteFor(db, prices, { userId, leagueId, ticker: "EQNR", quantity: "1" });
     const result = await executeTrade(db, prices, {
       userId,
       quoteId: quote.id,
       idempotencyKey: randomUUID(),
-      now: T.plus({ seconds: 15 }),
+      now: T.plus({ seconds: 30 }),
     });
     expect(codes(result)).toEqual(["QUOTE_EXPIRED"]);
   });

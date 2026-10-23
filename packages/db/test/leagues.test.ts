@@ -39,7 +39,7 @@ describe("createLeague", () => {
     const { memberId, inviteCode } = await createTestLeague(db, owner, {
       startAmount: Money.of("250000", "NOK"),
     });
-    expect(inviteCode).toMatch(/^[A-Z2-9]{8}$/);
+    expect(inviteCode).toMatch(/^[A-Z2-9]{6}$/);
     expect((await memberRow(db, memberId)).cashBalance).toBe("250000");
     expect((await deposits(memberId)).map((row) => row.amount)).toEqual(["250000"]);
   });

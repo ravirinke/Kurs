@@ -15,6 +15,20 @@
       "when": 1792776534340,
       "tag": "20261023172854_security",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792779788580,
+      "tag": "20261023182308_owner_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792779790306,
+      "tag": "20261023182310_owner_actions_security",
+      "breakpoints": true
     }
   ]
 }

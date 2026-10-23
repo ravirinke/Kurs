@@ -13,8 +13,8 @@ Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design
 ## Commands
 
 `pnpm dev` · `pnpm test` · `pnpm typecheck` · `pnpm lint` · `pnpm format` · `pnpm db:start` / `db:stop`
-`pnpm db:reset` (fresh DB + seed) · `pnpm db:seed` · `pnpm test:db` (needs Supabase running) · `pnpm db:generate`
-All of `test`, `typecheck`, `lint` and `test:db` must pass before a phase is done.
+`pnpm db:reset` (fresh DB + seed) · `pnpm db:seed` · `pnpm test:db` (needs Supabase running) · `pnpm test:e2e` (Playwright, needs Supabase + seed) · `pnpm db:generate`
+All of `test`, `typecheck`, `lint`, `test:db` and `test:e2e` must pass before a phase is done.
 
 ## Layout
 
@@ -22,7 +22,7 @@ All of `test`, `typecheck`, `lint` and `test:db` must pass before a phase is don
 - `packages/db`: Drizzle schema (`src/schema`), repositories, services (`createQuote`, `executeTrade`, `createLeague`, `joinLeague`, `decideJoinRequest`, `updateLeague`), seed, mock provider factory. Integration tests in `packages/db/test`.
 - `supabase/migrations`: SQL migrations. Tables are generated from the Drizzle schema (`pnpm db:generate`); security (RLS, grants, triggers, SQL functions) is a hand-written custom migration (`pnpm --filter @aksjeliga/db db:generate:custom --name=...`). Never edit a migration that has been applied; add a new one.
 - `packages/config`: shared tsconfig / ESLint / Prettier / Vitest.
-- `apps/web`: Next.js App Router. Thin layer: server actions or route handlers call `core`.
+- `apps/web`: Next.js App Router. Thin layer: pages read via `packages/db` services, server actions (`src/app/actions`) write via them. `src/server/` holds the db pool, the one `PriceProvider` (`prices.ts`), the session and the clock. `src/proxy.ts` (Next 16 name for middleware) refreshes the Supabase session. `src/lib/format.ts` is the only formatting module; `src/lib/errors.ts` maps error codes to Norwegian.
 - One `.env` in the repo root (see `.env.example`), loaded by `apps/web/next.config.ts` and `packages/db/drizzle.config.ts`.
 
 ## Non-negotiable rules
@@ -64,6 +64,11 @@ All of `test`, `typecheck`, `lint` and `test:db` must pass before a phase is don
 - Colour tokens live in `apps/web/src/app/globals.css` and mirror `docs/design.md`.
 
 ## Gotchas
+
+- Always get "now" from `serverNow()` (web) and pass it down. Never `DateTime.utc()` in pages or actions: the dev time machine (`ALLOW_TIME_TRAVEL=1`, profile page) and the e2e tests depend on it.
+- `shadcn add` also adds a bogus `cn` npm package and imports from `"cn"`: remove the package and fix the imports to `@/lib/utils`.
+- Next only inlines `NEXT_PUBLIC_*` written as `process.env.NAME` (dot access; declared in `apps/web/src/env.d.ts`). The root `.env` is loaded in `next.config.ts` with `process.loadEnvFile` (not `@next/env`, which caches and ignores a second directory).
+- Write non-breaking spaces as `\u00A0` escapes, never literally (lint forbids irregular whitespace).
 
 - TypeScript is pinned to 6.0.x because typescript-eslint does not support 7 yet. ESLint is pinned to 9 because eslint-config-next's plugins don't support 10.
 - On Windows, Docker's CLI may not be on PATH in an already-open shell after installing Docker Desktop. Restart the terminal.

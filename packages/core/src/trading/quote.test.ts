@@ -86,8 +86,10 @@ describe("quote", () => {
 
   it(`expires after ${QUOTE_TTL_SECONDS} seconds`, () => {
     const quote = appleQuote("buy", "1");
-    expect(quote.expiresAt.diff(quote.createdAt, "seconds").seconds).toBe(15);
-    expect(isQuoteExpired(quote, now.plus({ milliseconds: 14_999 }))).toBe(false);
-    expect(isQuoteExpired(quote, now.plus({ seconds: 15 }))).toBe(true);
+    expect(quote.expiresAt.diff(quote.createdAt, "seconds").seconds).toBe(QUOTE_TTL_SECONDS);
+    expect(isQuoteExpired(quote, now.plus({ milliseconds: QUOTE_TTL_SECONDS * 1000 - 1 }))).toBe(
+      false,
+    );
+    expect(isQuoteExpired(quote, now.plus({ seconds: QUOTE_TTL_SECONDS }))).toBe(true);
   });
 });

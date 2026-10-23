@@ -1,6 +1,6 @@
 import type { DateTime } from "luxon";
 
-import { type Exchange, type ExchangeId, getSession } from "../market";
+import { type Exchange, type ExchangeId, getNextOpenAt, getSession } from "../market";
 import { type Currency, decimal, isLeagueCurrency, Money, MONEY_DECIMALS } from "../money";
 import { zonedTime } from "../time";
 import { defaultFeeRule } from "../trading/fees";
@@ -54,7 +54,8 @@ export type LeagueSettingsError =
   | { code: "END_BEFORE_MARKET_CLOSE"; exchangeId: ExchangeId; closesAt: DateTime }
   | { code: "MAX_POSITION_SHARE_INVALID" }
   | { code: "FIELD_LOCKED"; field: keyof LeagueSettings }
-  | { code: "LEAGUE_FINISHED" };
+  | { code: "LEAGUE_FINISHED" }
+  | { code: "LEAGUE_CANCELLED" };
 
 /**
  * The end time must fall after every allowed exchange has closed on that day: for each
@@ -94,6 +95,19 @@ export function suggestEndTime(
       latest = session.closesAt;
   }
   return (latest ?? zonedTime(date, "18:00", zone)).setZone(zone);
+}
+
+/**
+ * Default start for a new league: the next time any of the chosen exchanges opens (e.g.
+ * tomorrow 09:00), so friends can join directly before trading begins. Falls back to `now`.
+ */
+export function suggestStartTime(exchanges: readonly Exchange[], now: DateTime): DateTime {
+  let earliest: DateTime | null = null;
+  for (const exchange of exchanges) {
+    const opensAt = getNextOpenAt(exchange, now);
+    if (opensAt && (!earliest || opensAt.toMillis() < earliest.toMillis())) earliest = opensAt;
+  }
+  return earliest ?? now;
 }
 
 function selectExchanges(
@@ -203,6 +217,7 @@ export function validateLeagueUpdate(
   now: DateTime,
 ): LeagueSettingsError[] {
   const status = deriveLeagueStatus(league, now);
+  if (status === "cancelled") return [{ code: "LEAGUE_CANCELLED" }];
   const next: LeagueSettings = { ...league, ...patch };
 
   if (status === "upcoming") return validateLeagueSettings(next, knownExchanges, now);

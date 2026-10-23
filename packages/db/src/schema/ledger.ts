@@ -24,7 +24,7 @@ import { leagueMembers, leagues } from "./leagues";
 import { corporateActions } from "./market-data";
 import { instruments } from "./reference";
 
-/** A price the server locked for a member, valid for 15 seconds and usable once. */
+/** A price the server locked for a member, valid for 30 seconds and usable once. */
 export const quotes = pgTable(
   "quotes",
   {

@@ -125,8 +125,8 @@ describe("validateTrade", () => {
   });
 
   describe("time-related", () => {
-    it("rejects a quote confirmed after 15 seconds", () => {
-      const result = check({ quote: quote("buy", "1"), now: quoteTime.plus({ seconds: 15 }) });
+    it("rejects a quote confirmed after 30 seconds", () => {
+      const result = check({ quote: quote("buy", "1"), now: quoteTime.plus({ seconds: 30 }) });
       expect(codes(result)).toEqual(["QUOTE_EXPIRED"]);
     });
 
@@ -238,7 +238,7 @@ describe("validateTrade", () => {
     const saturday = instant("2026-10-31T15:00:00Z");
     const result = check({
       quote: quote("buy", "1000", saturday),
-      now: saturday.plus({ seconds: 20 }),
+      now: saturday.plus({ seconds: 40 }),
       allowedExchangeIds: ["XOSL"],
     });
     expect(codes(result).sort()).toEqual(

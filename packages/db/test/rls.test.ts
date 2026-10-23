@@ -121,7 +121,7 @@ beforeAll(async () => {
     fee: "29",
     totalAmount: "294",
     createdAt: sql`now()`,
-    expiresAt: sql`now() + interval '15 seconds'`,
+    expiresAt: sql`now() + interval '30 seconds'`,
   });
   await db
     .insert(schema.leagueJoinRequests)

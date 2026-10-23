@@ -55,27 +55,37 @@ Stopp Supabase med `pnpm db:stop` når du er ferdig.
 - **5 børser** med åpningstider, helligdager og halve dager for 2026–2027
 - **33 aksjer**: Oslo (10), Stockholm (6), København (5), Nasdaq (7) og NYSE (5)
 - **3 testbrukere**: `ola@test.no`, `kari@test.no` og `per@test.no`. Logg inn med magic link; e-posten havner i Mailpit (http://localhost:54324).
-- **«Testligaen»** (NOK, startet for en uke siden, slutter om en måned). Ola eier den, Kari er med, og begge har handlet. Per er ikke med: bruk invitasjonskoden **`TESTLIGA`** for å teste sen innmelding med godkjenning.
+- **«Testligaen»** (NOK, startet for en uke siden, slutter om en måned). Ola eier den, Kari er med, og begge har handlet. Per er ikke med: bruk invitasjonskoden **`TEST26`** for å teste sen innmelding med godkjenning.
 
 ⚠️ Helligdager, halve dager og ISIN-koder er lagt inn manuelt og må kontrolleres mot offisielle kilder før appen tas i bruk på ordentlig.
+
+## Prøv appen
+
+1. Åpne http://localhost:3000 og logg inn som `ola@test.no`. Lenken kommer i Mailpit (http://localhost:54324).
+2. Åpne et **privat vindu** og logg inn som `per@test.no`. Gå til «Bli med i liga» og skriv `TEST26`.
+3. Som Ola: godkjenn Per fra banneret på ligasiden.
+4. Handle: ligaen → «Handle» → velg børs eller søk → aksjen → «Kjøp». Du kan skrive antall eller et beløp. Prisen holdes i 30 sekunder.
+
+**Tidsmaskin (bare lokalt):** under «Profil» kan du flytte appens klokke, for eksempel til en lørdag for å se at handel blir avvist når børsen er stengt, eller til en tirsdag kl. 15:00 når både Oslo Børs og Nasdaq er åpne. Et oransje banner viser at tidsmaskinen er på. Den er avslått i produksjon (`ALLOW_TIME_TRAVEL` i `.env`).
 
 ## Skript
 
 Kjøres fra rotmappen. Turborepo kjører dem i alle pakker.
 
-| Skript                                    | Hva det gjør                                           |
-| ----------------------------------------- | ------------------------------------------------------ |
-| `pnpm dev`                                | Starter web-appen i utviklingsmodus                    |
-| `pnpm build`                              | Bygger alt for produksjon                              |
-| `pnpm test`                               | Enhetstester (Vitest), uten database                   |
-| `pnpm test:db`                            | Tester mot lokal database (krever `pnpm db:start`)     |
-| `pnpm typecheck`                          | Sjekker typer (TypeScript strict)                      |
-| `pnpm lint`                               | ESLint                                                 |
-| `pnpm format` / `pnpm format:check`       | Prettier: formater / sjekk                             |
-| `pnpm db:start` / `db:stop` / `db:status` | Lokal Supabase                                         |
-| `pnpm db:reset`                           | Tom database, alle migrasjoner og testdata             |
-| `pnpm db:seed`                            | Fyller inn testdata (trygt å kjøre flere ganger)       |
-| `pnpm db:generate`                        | Lager en ny migrasjon etter endring i Drizzle-skjemaet |
+| Skript                                    | Hva det gjør                                                  |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `pnpm dev`                                | Starter web-appen i utviklingsmodus                           |
+| `pnpm build`                              | Bygger alt for produksjon                                     |
+| `pnpm test`                               | Enhetstester (Vitest), uten database                          |
+| `pnpm test:db`                            | Tester mot lokal database (krever `pnpm db:start`)            |
+| `pnpm test:e2e`                           | Hele flyten i en ekte nettleser (krever Supabase og testdata) |
+| `pnpm typecheck`                          | Sjekker typer (TypeScript strict)                             |
+| `pnpm lint`                               | ESLint                                                        |
+| `pnpm format` / `pnpm format:check`       | Prettier: formater / sjekk                                    |
+| `pnpm db:start` / `db:stop` / `db:status` | Lokal Supabase                                                |
+| `pnpm db:reset`                           | Tom database, alle migrasjoner og testdata                    |
+| `pnpm db:seed`                            | Fyller inn testdata (trygt å kjøre flere ganger)              |
+| `pnpm db:generate`                        | Lager en ny migrasjon etter endring i Drizzle-skjemaet        |
 
 ## Struktur
 
@@ -89,6 +99,12 @@ packages/
 supabase/       Lokal Supabase-konfig og migrasjoner (SQL)
 docs/           Oppdrag, design og beslutninger
 ```
+
+## Ende-til-ende-tester
+
+`pnpm test:e2e` starter appen (eller bruker den som kjører) og går gjennom innlogging via Mailpit, opprett liga, invitasjon og godkjenning, kjøp av norske og amerikanske aksjer, ledertabell og avvisning når børsen er stengt. Første gang: `pnpm --filter @aksjeliga/web exec playwright install chromium`. Testen lager egne brukere, så testdataene dine blir ikke rotete.
+
+Skjermbilder av alle hovedsidene til designsjekk: `SCREENSHOTS=1 pnpm --filter @aksjeliga/web exec playwright test screenshots` (legg til `DARK=1` for mørk modus). Bildene havner i `apps/web/test-results/screens`.
 
 ## Feilsøking
 

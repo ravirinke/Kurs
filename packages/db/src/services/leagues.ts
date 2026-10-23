@@ -25,7 +25,7 @@ import { leagueAllowedExchanges, leagueJoinRequests, leagueMembers, leagues } fr
 
 /** No 0/O, 1/I/L: easy to read out loud and type. */
 const INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const INVITE_LENGTH = 8;
+const INVITE_LENGTH = 6;
 
 export function generateInviteCode(): string {
   return Array.from(
@@ -127,9 +127,11 @@ export async function joinLeague(
           eq(leagueJoinRequests.status, "pending"),
         ),
       );
+    const existing = await findMember(tx, league.id, input.userId);
     const outcome = checkJoin({
       league,
-      isAlreadyMember: (await findMember(tx, league.id, input.userId)) !== null,
+      isAlreadyMember: existing !== null && existing.removedAt === null,
+      wasRemoved: existing !== null && existing.removedAt !== null,
       hasPendingRequest: pending !== undefined,
       now: input.now,
     });
@@ -190,6 +192,7 @@ export async function decideJoinRequest(
 
     if (input.decision === "decline") return { ok: true, memberId: null };
     const existing = await findMember(tx, league.id, request.userId);
+    if (existing?.removedAt) return { ok: true, memberId: null };
     const memberId = existing?.id ?? (await addMember(tx, league, request.userId, input.now));
     return { ok: true, memberId };
   });

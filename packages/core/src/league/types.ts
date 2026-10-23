@@ -4,7 +4,8 @@ import type { ExchangeId } from "../market";
 import type { Currency, Decimal, Money } from "../money";
 import type { FeeRule } from "../trading/fees";
 
-export type LeagueStatus = "upcoming" | "active" | "finished";
+/** "cancelled": the owner called the league off before it started. */
+export type LeagueStatus = "upcoming" | "active" | "finished" | "cancelled";
 
 /**
  * - open: everyone sees all holdings and trades in real time.
@@ -33,4 +34,6 @@ export interface League extends LeagueSettings {
   inviteCode: string;
   /** Set once by the finalization job. Results are never recomputed after this. */
   finalizedAt: DateTime | null;
+  /** Set when the owner cancels the league before the start. */
+  cancelledAt: DateTime | null;
 }

@@ -6,3 +6,5 @@ dist/
 coverage/
 supabase/.temp/
 docs/oppdrag.md
+test-results/
+playwright-report/

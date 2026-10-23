@@ -5,9 +5,11 @@ import { decimal, Money } from "../money";
 import { instant } from "../time";
 
 import { checkJoin, checkJoinDecision, startingDeposit } from "./membership";
+import { checkCancelLeague, checkRegenerateInviteCode, checkRemoveMember } from "./owner-actions";
 import {
   defaultLeagueSettings,
   suggestEndTime,
+  suggestStartTime,
   validateEndTime,
   validateLeagueSettings,
   validateLeagueUpdate,
@@ -36,6 +38,7 @@ function league(overrides: Partial<League> = {}): League {
     ownerId: "ola",
     inviteCode: "ABC123",
     finalizedAt: null,
+    cancelledAt: null,
     ...overrides,
   };
 }
@@ -209,6 +212,7 @@ describe("joining", () => {
   const base = {
     league: league({ startsAt: instant("2026-11-01T00:00:00Z") }),
     isAlreadyMember: false,
+    wasRemoved: false,
     hasPendingRequest: false,
   };
   const duringLeague = instant("2026-11-10T00:00:00Z");
@@ -281,5 +285,119 @@ describe("joining", () => {
   it("gives late members the full start amount", () => {
     const event = startingDeposit(league(), "dep-late", instant("2026-11-20T10:00:00Z"));
     expect(event.amount.toString()).toBe("100000 NOK");
+  });
+});
+
+describe("cancelled leagues", () => {
+  const upcoming = league({ startsAt: instant("2026-11-01T00:00:00Z") });
+  const cancelled = { ...upcoming, cancelledAt: instant("2026-10-24T10:00:00Z") };
+
+  it("stay cancelled whatever the time", () => {
+    expect(deriveLeagueStatus(cancelled, instant("2026-11-15T00:00:00Z"))).toBe("cancelled");
+    expect(needsFinalization(cancelled, instant("2027-01-01T00:00:00Z"))).toBe(false);
+  });
+
+  it("cannot be joined or edited", () => {
+    expect(
+      checkJoin({
+        league: cancelled,
+        isAlreadyMember: false,
+        wasRemoved: false,
+        hasPendingRequest: false,
+        now,
+      }),
+    ).toEqual({ ok: false, rejection: { code: "LEAGUE_CANCELLED" } });
+    expect(validateLeagueUpdate(cancelled, { name: "Ny" }, EXCHANGES, now)).toEqual([
+      { code: "LEAGUE_CANCELLED" },
+    ]);
+  });
+});
+
+describe("owner actions", () => {
+  const upcoming = league({ startsAt: instant("2026-11-01T00:00:00Z") });
+  const during = instant("2026-11-10T00:00:00Z");
+  const after = instant("2026-11-27T21:00:00Z");
+
+  it("only the owner may act", () => {
+    expect(checkRegenerateInviteCode({ league: upcoming, actorId: "kari", now })).toEqual({
+      code: "NOT_OWNER",
+    });
+    expect(checkCancelLeague({ league: upcoming, actorId: "kari", now })).toEqual({
+      code: "NOT_OWNER",
+    });
+    expect(
+      checkRemoveMember({
+        league: upcoming,
+        actorId: "kari",
+        targetUserId: "per",
+        targetIsActiveMember: true,
+        now,
+      }),
+    ).toEqual({ code: "NOT_OWNER" });
+  });
+
+  it("can make a new invite code until the league finishes", () => {
+    expect(checkRegenerateInviteCode({ league: upcoming, actorId: "ola", now: during })).toBeNull();
+    expect(checkRegenerateInviteCode({ league: upcoming, actorId: "ola", now: after })).toEqual({
+      code: "LEAGUE_FINISHED",
+    });
+  });
+
+  it("can remove a member, but not themselves, and not after the end", () => {
+    const remove = (targetUserId: string, at = during, targetIsActiveMember = true) =>
+      checkRemoveMember({
+        league: upcoming,
+        actorId: "ola",
+        targetUserId,
+        targetIsActiveMember,
+        now: at,
+      });
+    expect(remove("kari")).toBeNull();
+    expect(remove("ola")).toEqual({ code: "CANNOT_REMOVE_OWNER" });
+    expect(remove("kari", after)).toEqual({ code: "LEAGUE_FINISHED" });
+    expect(remove("kari", during, false)).toEqual({ code: "NOT_A_MEMBER" });
+  });
+
+  it("can cancel only before the start", () => {
+    expect(checkCancelLeague({ league: upcoming, actorId: "ola", now })).toBeNull();
+    expect(checkCancelLeague({ league: upcoming, actorId: "ola", now: during })).toEqual({
+      code: "LEAGUE_ALREADY_STARTED",
+    });
+    const cancelled = { ...upcoming, cancelledAt: now };
+    expect(checkCancelLeague({ league: cancelled, actorId: "ola", now })).toEqual({
+      code: "LEAGUE_CANCELLED",
+    });
+  });
+
+  it("a removed member can never join again", () => {
+    expect(
+      checkJoin({
+        league: upcoming,
+        isAlreadyMember: false,
+        wasRemoved: true,
+        hasPendingRequest: false,
+        now,
+      }),
+    ).toEqual({ ok: false, rejection: { code: "REMOVED_FROM_LEAGUE" } });
+  });
+});
+
+describe("suggestStartTime", () => {
+  it("is the next time any allowed exchange opens", () => {
+    // Friday 23 Oct 2026 18:00 Oslo (16:00Z): Nordic exchanges closed, the US still open.
+    // Next open: Monday 26 Oct 09:00 Oslo (Oslo, Stockholm, Copenhagen); the US opens later.
+    const suggestion = suggestStartTime(EXCHANGES, instant("2026-10-23T16:00:00Z"));
+    expect(suggestion.setZone("Europe/Oslo").toFormat("yyyy-MM-dd HH:mm")).toBe("2026-10-26 09:00");
+  });
+
+  it("only looks at the chosen exchanges", () => {
+    const usOnly = EXCHANGES.filter((exchange) => exchange.id === "XNAS");
+    const suggestion = suggestStartTime(usOnly, instant("2026-10-23T16:00:00Z"));
+    // Nasdaq is open now, so the next opening is Monday 09:30 New York = 14:30 Oslo.
+    expect(suggestion.setZone("Europe/Oslo").toFormat("yyyy-MM-dd HH:mm")).toBe("2026-10-26 14:30");
+  });
+
+  it("falls back to now without exchanges", () => {
+    expect(suggestStartTime([], now).equals(now)).toBe(true);
   });
 });

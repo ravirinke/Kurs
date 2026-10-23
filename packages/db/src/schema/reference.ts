@@ -22,6 +22,8 @@ export const profiles = pgTable("profiles", {
     .primaryKey()
     .references(() => authUsers.id, { onDelete: "cascade" }),
   displayName: text("display_name").notNull(),
+  /** False until the user has chosen a display name (first sign-in asks for it). */
+  nameConfirmed: boolean("name_confirmed").notNull().default(false),
   createdAt: timestamptz("created_at").notNull().defaultNow(),
 });
 

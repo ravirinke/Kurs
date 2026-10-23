@@ -1,4 +1,4 @@
-import type { Exchange, Instrument } from "@aksjeliga/core";
+import { EXCHANGES, type Exchange, type Instrument } from "@aksjeliga/core";
 import { eq, inArray } from "drizzle-orm";
 
 import type { Executor } from "../client";
@@ -11,6 +11,12 @@ export async function loadExchanges(db: Executor): Promise<Exchange[]> {
     db.select().from(exchangeTradingHours),
     db.select().from(exchangeHolidays),
   ]);
+  // In the order of the reference data (Oslo first), then any added later by id.
+  const order = (id: string) => {
+    const index = EXCHANGES.findIndex((exchange) => exchange.id === id);
+    return index === -1 ? EXCHANGES.length : index;
+  };
+  rows.sort((a, b) => order(a.id) - order(b.id) || a.id.localeCompare(b.id));
   return rows.map((row) =>
     toExchange(
       row,

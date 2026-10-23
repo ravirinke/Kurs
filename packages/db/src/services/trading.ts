@@ -87,7 +87,7 @@ export type CreateQuoteResult =
   { ok: true; quote: Quote } | { ok: false; rejections: TradingRejection[] };
 
 /**
- * Step 1 of a trade: the server prices the order and locks the price for 15 seconds.
+ * Step 1 of a trade: the server prices the order and locks the price for 30 seconds.
  * The client sends only instrument, side and quantity.
  */
 export async function createQuote(
@@ -100,7 +100,7 @@ export async function createQuote(
   if (!orderCheck.ok) return orderCheck;
 
   const member = await findMember(db, input.leagueId, input.userId);
-  if (!member) return { ok: false, rejections: [{ code: "NOT_A_MEMBER" }] };
+  if (!member || member.removedAt) return { ok: false, rejections: [{ code: "NOT_A_MEMBER" }] };
   const league = await loadLeague(db, input.leagueId);
   if (!league) return { ok: false, rejections: [{ code: "NOT_A_MEMBER" }] };
   const instrument = await loadInstrument(db, order.instrumentId);
@@ -133,7 +133,7 @@ export async function createQuote(
 }
 
 export type ExecuteTradeResult =
-  | { ok: true; transactionId: string; replayed: boolean }
+  | { ok: true; transactionId: string; replayed: boolean; quote: Quote }
   | { ok: false; rejections: TradingRejection[] };
 
 /**
@@ -157,6 +157,7 @@ export async function executeTrade(
     const member = await lockMember(tx, unlocked.memberId);
     if (member?.userId !== input.userId)
       return { ok: false, rejections: [{ code: "QUOTE_NOT_FOUND" }] };
+    if (member.removedAt) return { ok: false, rejections: [{ code: "NOT_A_MEMBER" }] };
 
     const [previous] = await tx
       .select({ id: transactions.id, quoteId: transactions.quoteId })
@@ -170,7 +171,15 @@ export async function executeTrade(
     if (previous) {
       if (previous.quoteId !== input.quoteId)
         return { ok: false, rejections: [{ code: "IDEMPOTENCY_KEY_REUSED" }] };
-      return { ok: true, transactionId: previous.id, replayed: true };
+      // The quote of the original trade (the unlocked read above), for the receipt.
+      const replayedLeague = await loadLeague(tx, unlocked.leagueId);
+      if (!replayedLeague) return { ok: false, rejections: [{ code: "QUOTE_NOT_FOUND" }] };
+      return {
+        ok: true,
+        transactionId: previous.id,
+        replayed: true,
+        quote: toQuote(unlocked, replayedLeague.currency),
+      };
     }
 
     const [row] = await tx.select().from(quotes).where(eq(quotes.id, input.quoteId)).for("update");
@@ -207,6 +216,6 @@ export async function executeTrade(
       .where(eq(quotes.id, quote.id));
     await writeMemberCache(tx, member.id, replay(league.currency, [...events, event]));
 
-    return { ok: true, transactionId: event.id, replayed: false };
+    return { ok: true, transactionId: event.id, replayed: false, quote };
   });
 }

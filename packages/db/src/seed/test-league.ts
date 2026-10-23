@@ -19,7 +19,7 @@ import { instruments, leagues } from "../schema";
 import { createLeague, joinLeague } from "../services/leagues";
 import { createQuote, executeTrade } from "../services/trading";
 
-export const TEST_LEAGUE_INVITE_CODE = "TESTLIGA";
+export const TEST_LEAGUE_INVITE_CODE = "TEST26";
 
 interface PlannedTrade {
   user: "ola" | "kari";

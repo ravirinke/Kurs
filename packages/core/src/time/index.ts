@@ -8,6 +8,17 @@ export interface Clock {
   now(): DateTime;
 }
 
+/**
+ * The app's home time zone, used for calendar days ("today", daily snapshots, "dagens
+ * endring"). Exchange hours always use the exchange's own zone.
+ */
+export const APP_TIME_ZONE = "Europe/Oslo";
+
+/** Start of the calendar day in the app time zone: the boundary for "today's change". */
+export function startOfAppDay(at: DateTime): DateTime {
+  return at.setZone(APP_TIME_ZONE).startOf("day");
+}
+
 /** A clock that always returns the same instant. */
 export function fixedClock(at: DateTime): Clock {
   return { now: () => at };

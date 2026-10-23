@@ -49,7 +49,7 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 - **Exchange IDs are MIC codes:** XOSL, XSTO, XCSE, XNAS, XNYS. Reference data (hours, holidays, half days) lives in `packages/core/src/market/exchanges.ts` and will seed the database.
 - **⚠️ Holidays and half days for 2026–2027 were entered manually from memory and MUST be verified against the official calendars** of Oslo Børs (Euronext), Nasdaq Nordic and NYSE/Nasdaq before going live. Uncertain entries include Oslo Børs' half day on the Wednesday before Easter and Stockholm's half days (Jan 5, Apr 30, the day before Ascension, the Friday before All Saints).
 - **Sessions are [open, close)**: a trade at exactly the closing time is rejected.
-- **Quote validity is [createdAt, createdAt + 15 s)**.
+- **Quote validity is [createdAt, createdAt + 30 s)** (was 15 s in the brief; changed to 30 s by the product owner in phase 4 planning).
 - **Mock prices** follow smooth deterministic noise per instrument (weekly, daily, hourly and 5-minute components), roughly ±10 % around a base price, with 2-decimal ticks. FX drifts by a fraction of a percent. JS numbers are used only for these random multipliers, never for amounts. Prices before a split are multiplied by the split factor as seen at query time. The mock does not drop the price on a dividend's ex-date.
 - **core never reads the clock** (`Date.now`, `new Date()`, `DateTime.now/local/utc` are lint errors); never calls `toNumber()`, `parseFloat` or `Math.random`.
 - **Rejections are codes, not text** (`INSUFFICIENT_CASH`, `MARKET_CLOSED`, …); the web app maps them to Norwegian.
@@ -90,3 +90,30 @@ Short notes on decisions and clarifications. Newest at the bottom. The original 
 - **Instruments have UUID ids.** Mock base prices live in the seed catalogue keyed by ISIN; `createMockPriceProvider(db, …)` builds the provider from the database.
 - **Seed:** test users via the Supabase Auth admin API (real, can sign in); the test league's trades go through the real `createQuote`/`executeTrade` at past market hours. Re-running the seed leaves existing data alone.
 - **Database tests run separately** (`pnpm test:db`, needs `pnpm db:start`) so `pnpm test` works without Docker. Each test creates its own users and leagues. The concurrency tests were checked by removing `FOR UPDATE` (they fail) and the RLS tests by loosening a policy (they fail).
+
+## 2026-10-23 – Phase 4: web app
+
+Product decisions (planned point by point with the product owner):
+
+- Sign-in with magic link only. First sign-in asks for a display name (`profiles.name_confirmed`; names given at sign-up, e.g. by the seed, count as confirmed).
+- Home page sections: active, upcoming, awaiting approval, finished. Upcoming cards show the member count, not a rank.
+- Create league: one page, with visibility, exchanges, fees and max share under "Flere innstillinger". **Start defaults to the next market open** of the chosen exchanges (`suggestStartTime`); end is a date, the time follows from the exchanges' closes (`suggestEndTime`).
+- Invite code: **6 characters**, letters and digits without look-alikes, shown to all members in "Om ligaen" with a share link `/bli-med/<code>`.
+- Late join requests are approved from a banner on the league page.
+- League page tabs: Tabell (with value in kr, return, movement, today's winners/losers among members), Aktivitet, Om ligaen. Buttons "Handle" and "Min portefølje"; no fixed bottom navigation.
+- Trading happens inside a league: exchanges with open/closed status, search, today's winners/losers among stocks, stock page with 1 d / 1 u / 1 m / 3 m / 1 år and who in the league owns it (subject to visibility).
+- **Quotes are held for 30 seconds** (was 15). When a quote expires the sheet fetches a new one automatically and highlights it; the user always confirms the price shown.
+- Buy by quantity **or by amount**: the server turns an amount into the most whole shares whose total incl. brokerage fits (`maxQuantityForAmount`). Selling is by quantity (with "Alt").
+- Portfolio: value, return, today, cash, holdings with return and today's change, value chart since joining, trades, allocation by stock and exchange. The same page shows others' portfolios per the visibility rule.
+- Owner settings: name, description, end date; new invite code; **remove member** (soft: `league_members.removed_at`; they lose access and can never rejoin, since rejoining would give a fresh start amount; their transactions stay); **cancel before start** (`leagues.cancelled_at`; hidden from everyone, open requests declined).
+- No member limit.
+
+Technical:
+
+- Server components read through services in `packages/db` (`loadMyLeagues`, `loadLeaderboard`, `loadPortfolio`, `loadActivity`, `loadTradingHome`, `loadInstrumentDetail`, …); server actions write through the existing services. Visibility for others' holdings and trades is applied in these services with `resolvePortfolioAccess`.
+- "Today" means since the start of the calendar day in Europe/Oslo (`startOfAppDay`), computed live from events and historical prices, not from snapshots.
+- `PriceProvider.getPriceHistory` (5 m / 1 h / 1 d) added for charts; charts are a small hand-written SVG component.
+- **Dev time machine:** with `ALLOW_TIME_TRAVEL=1` (never in production) a cookie shifts the server's "now"; time keeps running from the chosen moment. Used for manual testing and to make end-to-end tests independent of the real time.
+- **Root `.env` loading:** `@next/env`'s `loadEnvConfig` caches the env Next already loaded for `apps/web` and silently ignored the root `.env`; `next.config.ts` now uses `process.loadEnvFile`, and passes the public Supabase values through `env` so the proxy gets them.
+- **Local Supabase auth rate limits raised** (`email_sent` was 2 per hour), or testing with several users was impossible.
+- End-to-end tests with Playwright (`pnpm test:e2e`) on a mobile viewport. Each run creates its own users.

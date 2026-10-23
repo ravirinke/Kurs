@@ -41,6 +41,8 @@ export const leagues = pgTable(
      * upcoming before starts_at, active until ends_at, finished after.
      */
     finalizedAt: timestamptz("finalized_at"),
+    /** Set when the owner cancels the league before the start. Hidden from everyone after. */
+    cancelledAt: timestamptz("cancelled_at"),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -93,6 +95,11 @@ export const leagueMembers = pgTable(
     finalValue: decimalColumn("final_value"),
     finalReturn: decimalColumn("final_return"),
     isWinner: boolean("is_winner").notNull().default(false),
+    /**
+     * Set when the owner removes the member. The row (and its transactions) stays, so the
+     * user can never join again with a fresh start amount; they just lose access.
+     */
+    removedAt: timestamptz("removed_at"),
   },
   (table) => [
     uniqueIndex("league_members_league_user").on(table.leagueId, table.userId),

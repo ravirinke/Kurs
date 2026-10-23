@@ -19,7 +19,8 @@
     "test:db": "pnpm --filter @aksjeliga/db test:db",
     "db:reset": "supabase db reset && pnpm db:seed",
     "db:seed": "pnpm --filter @aksjeliga/db seed",
-    "db:generate": "pnpm --filter @aksjeliga/db db:generate"
+    "db:generate": "pnpm --filter @aksjeliga/db db:generate",
+    "test:e2e": "pnpm --filter @aksjeliga/web test:e2e"
   },
   "prettier": "@aksjeliga/config/prettier",
   "devDependencies": {

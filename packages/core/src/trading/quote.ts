@@ -19,7 +19,7 @@ export interface MarketOrder {
 /** Only market orders for now. Add `LimitOrder` to this union later. */
 export type Order = MarketOrder;
 
-export const QUOTE_TTL_SECONDS = 15;
+export const QUOTE_TTL_SECONDS = 30;
 
 /** A price the server has locked for a short time, for the user to confirm. */
 export interface Quote {

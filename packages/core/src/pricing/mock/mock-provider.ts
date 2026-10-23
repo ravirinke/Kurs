@@ -7,18 +7,21 @@ import {
   type ExchangeId,
   getLastCloseAt,
   getMarketStatus,
+  getSession,
   type Instrument,
   type InstrumentId,
   isMarketOpen,
   type MarketStatus,
 } from "../../market";
 import { type Currency, decimal, type Decimal, Money, roundHalfUp } from "../../money";
-import type { Clock } from "../../time";
+import { type Clock, localDate, zonedTime } from "../../time";
 import {
   type ClosingPrice,
   PriceDataError,
+  type PricePoint,
   type PriceProvider,
   type PriceQuote,
+  type PriceResolution,
 } from "../provider";
 
 import { hashString, valueNoise } from "./noise";
@@ -56,6 +59,12 @@ export const DEFAULT_FX_PER_USD: Readonly<Record<Currency, string>> = {
 const MINUTES_PER_DAY = 60 * 24;
 const DEFAULT_VOLATILITY = 0.04;
 const PRICE_TICK_DECIMALS = 2;
+const RESOLUTION_MINUTES: Readonly<Record<Exclude<PriceResolution, "1d">, number>> = {
+  "5m": 5,
+  "1h": 60,
+};
+/** Upper bound on days scanned by one history request (a bit more than a year). */
+const MAX_HISTORY_DAYS = 400;
 
 /** Runs synchronous mock logic behind the async interface, turning throws into rejections. */
 function settle<T>(compute: () => T): Promise<T> {
@@ -150,6 +159,48 @@ export class MockPriceProvider implements PriceProvider {
           action.instrumentId === instrumentId &&
           inRange(action.kind === "split" ? action.effectiveDate : action.exDate),
       );
+    });
+  }
+
+  getPriceHistory(
+    instrumentId: InstrumentId,
+    from: DateTime,
+    to: DateTime,
+    resolution: PriceResolution,
+  ): Promise<PricePoint[]> {
+    return settle(() => {
+      const { mock, exchange } = this.lookup(instrumentId);
+      const now = this.clock.now();
+      const end = to.toMillis() < now.toMillis() ? to : now;
+      const points: PricePoint[] = [];
+      const push = (at: DateTime) => {
+        if (at.toMillis() >= from.toMillis() && at.toMillis() <= end.toMillis()) {
+          points.push({ at, price: this.priceAt(mock, exchange, at, now) });
+        }
+      };
+
+      let date = localDate(from, exchange.timeZone);
+      const lastDate = localDate(end, exchange.timeZone);
+      for (let day = 0; day < MAX_HISTORY_DAYS && date <= lastDate; day++) {
+        const session = getSession(exchange, date);
+        if (session) {
+          if (resolution === "1d") {
+            push(session.closesAt.toMillis() <= end.toMillis() ? session.closesAt : end);
+          } else {
+            const step = RESOLUTION_MINUTES[resolution];
+            for (
+              let at = session.opensAt;
+              at.toMillis() < session.closesAt.toMillis();
+              at = at.plus({ minutes: step })
+            ) {
+              push(at);
+            }
+            push(session.closesAt);
+          }
+        }
+        date = zonedTime(date, "12:00", exchange.timeZone).plus({ days: 1 }).toFormat("yyyy-MM-dd");
+      }
+      return points;
     });
   }
 

@@ -100,6 +100,7 @@ export function toLeague(
     maxPositionShare: row.maxPositionShare === null ? null : decimal(row.maxPositionShare),
     inviteCode: row.inviteCode,
     finalizedAt: row.finalizedAt ? toDateTime(row.finalizedAt) : null,
+    cancelledAt: row.cancelledAt ? toDateTime(row.cancelledAt) : null,
   };
 }
 
