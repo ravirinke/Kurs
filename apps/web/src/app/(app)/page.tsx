@@ -1,4 +1,4 @@
-import { loadMyLeagues } from "@aksjeliga/db";
+import { finalizeDueLeagues, loadMyLeagues } from "@aksjeliga/db";
 import { Hourglass, Plus, Ticket } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -47,7 +47,11 @@ function Actions() {
 export default async function MyLeaguesPage() {
   const { user } = await requireProfile("/");
   const now = await serverNow();
-  const mine = await loadMyLeagues(getDb(), await getPrices(now), { userId: user.id, now });
+  const db = getDb();
+  const prices = await getPrices(now);
+  // Leagues that ended since the last job run get their final result now (idempotent).
+  await finalizeDueLeagues(db, prices, { now, userId: user.id });
+  const mine = await loadMyLeagues(db, prices, { userId: user.id, now });
   const isEmpty =
     mine.active.length +
       mine.upcoming.length +

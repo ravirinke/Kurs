@@ -18,6 +18,10 @@ export const serverEnv = {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     );
   },
+  /** Shared secret the cron caller sends as `Authorization: Bearer …`. */
+  get cronSecret() {
+    return required("CRON_SECRET", process.env.CRON_SECRET);
+  },
   /** Dev-only "time machine" (see clock.ts). Never active in production builds. */
   get timeTravelEnabled() {
     return process.env.NODE_ENV !== "production" && process.env.ALLOW_TIME_TRAVEL === "1";

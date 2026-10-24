@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Fake-money stock league app. Friends compete in leagues trading real stocks with fictional money.
-Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design.md`. Decisions: `docs/decisions.md`.
+Full brief: `docs/oppdrag.md` (Norwegian, source of truth). How it works today: `docs/arkitektur.md` (update it in the same phase when the architecture changes). Design: `docs/design.md`. Decisions: `docs/decisions.md`.
 
 ## Working agreement
 
@@ -15,15 +15,16 @@ Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design
 
 `pnpm dev` · `pnpm test` · `pnpm typecheck` · `pnpm lint` · `pnpm format` · `pnpm db:start` / `db:stop`
 `pnpm db:reset` (fresh DB + seed) · `pnpm db:seed` · `pnpm test:db` (needs Supabase running) · `pnpm test:e2e` (Playwright, needs Supabase + seed) · `pnpm db:generate`
+`pnpm jobs [daily|corporate-actions|finalize|snapshots] [--now <ISO>]` calls the cron endpoint of the running app (needs `pnpm dev`)
 All of `test`, `typecheck`, `lint`, `test:db` and `test:e2e` must pass before a phase is done.
 
 ## Layout
 
 - `packages/core`: all business logic (trading, FX, market hours, valuation, leaderboard, visibility, corporate actions, `PriceProvider`). **Pure TypeScript, no I/O**, no Next.js, React or database imports (enforced by ESLint). Shared with the future Expo app.
-- `packages/db`: Drizzle schema (`src/schema`), repositories, services (`createQuote`, `executeTrade`, `createLeague`, `joinLeague`, `decideJoinRequest`, `updateLeague`), seed, mock provider factory. Integration tests in `packages/db/test`.
+- `packages/db`: Drizzle schema (`src/schema`), repositories, services (`createQuote`, `executeTrade`, `createLeague`, `joinLeague`, `decideJoinRequest`, `updateLeague`), jobs (`src/jobs`: `processCorporateActions`, `finalizeLeagueIfDue` / `finalizeDueLeagues`, `takeDailySnapshots`, `runJob`), seed, mock provider factory. Integration tests in `packages/db/test`.
 - `supabase/migrations`: SQL migrations. Tables are generated from the Drizzle schema (`pnpm db:generate`); security (RLS, grants, triggers, SQL functions) is a hand-written custom migration (`pnpm --filter @aksjeliga/db db:generate:custom --name=...`). Never edit a migration that has been applied; add a new one.
 - `packages/config`: shared tsconfig / ESLint / Prettier / Vitest.
-- `apps/web`: Next.js App Router. Thin layer: pages read via `packages/db` services, server actions (`src/app/actions`) write via them. `src/server/` holds the db pool, the one `PriceProvider` (`prices.ts`), the session and the clock. `src/proxy.ts` (Next 16 name for middleware) refreshes the Supabase session. `src/lib/format.ts` is the only formatting module; `src/lib/errors.ts` maps error codes to Norwegian.
+- `apps/web`: Next.js App Router. Thin layer: pages read via `packages/db` services, server actions (`src/app/actions`) write via them. `src/server/` holds the db pool, the one `PriceProvider` (`prices.ts`), the session and the clock. `src/proxy.ts` (Next 16 name for middleware) refreshes the Supabase session. Cron: `src/app/api/cron/[job]/route.ts` (Bearer `CRON_SECRET`). `src/lib/format.ts` is the only formatting module; `src/lib/errors.ts` maps error codes to Norwegian.
 - One `.env` in the repo root (see `.env.example`), loaded by `apps/web/next.config.ts` and `packages/db/drizzle.config.ts`.
 
 ## Non-negotiable rules

@@ -6,13 +6,16 @@ import {
   deriveLeagueStatus,
   executeQuote,
   type Instrument,
+  type LedgerEvent,
   type LedgerState,
   type Money,
   type Order,
   type PriceProvider,
+  quantityHeldBefore,
   type Quote,
   replay,
   resolveMarks,
+  startOfExchangeDay,
   type TradeContext,
   type TradeRejection,
   validateOrder,
@@ -23,10 +26,12 @@ import { and, eq } from "drizzle-orm";
 import type { DateTime } from "luxon";
 
 import type { Database, Executor } from "../client";
+import { CORPORATE_ACTION_LOOKBACK_DAYS, hasBooked } from "../jobs/corporate-actions";
 import { quoteToRow, toDbTime, toQuote } from "../mappers";
+import { findCorporateActions } from "../repositories/corporate-actions";
 import { findMember, loadLeague, lockMember } from "../repositories/leagues";
 import { appendEvent, loadMemberEvents, writeMemberCache } from "../repositories/ledger";
-import { loadInstrument, loadInstruments } from "../repositories/reference";
+import { loadExchanges, loadInstrument, loadInstruments } from "../repositories/reference";
 import { quotes, transactions } from "../schema";
 
 /** Rejections that come from the service layer rather than the trading rules. */
@@ -35,7 +40,8 @@ export type ServiceRejection =
   | { code: "INSTRUMENT_NOT_FOUND" }
   | { code: "QUOTE_NOT_FOUND" }
   | { code: "QUOTE_ALREADY_USED" }
-  | { code: "IDEMPOTENCY_KEY_REUSED" };
+  | { code: "IDEMPOTENCY_KEY_REUSED" }
+  | { code: "SPLIT_PENDING" };
 
 export type TradingRejection = TradeRejection | ServiceRejection;
 
@@ -50,6 +56,48 @@ async function portfolioValueAt(
   const held: Instrument[] = await loadInstruments(db, [...state.positions.keys()]);
   const marks = await resolveMarks(provider, held, currency, at);
   return valuePortfolio(state, marks).totalValue;
+}
+
+/**
+ * True when a split in the instrument has taken effect while the member held shares, but the
+ * job has not booked it for them yet. Trading then would mix the new price with the old
+ * quantity, so it waits for the job (which runs before the exchanges open).
+ */
+async function hasPendingSplit(
+  db: Executor,
+  provider: PriceProvider,
+  input: {
+    instrument: Instrument;
+    events: readonly LedgerEvent[];
+    currency: Currency;
+    now: DateTime;
+  },
+): Promise<boolean> {
+  const { instrument, events, now } = input;
+  if (!events.some((event) => event.type === "buy" && event.instrumentId === instrument.id))
+    return false;
+  const splits = (
+    await provider.getCorporateActions(
+      instrument.id,
+      now.minus({ days: CORPORATE_ACTION_LOOKBACK_DAYS }),
+      now,
+    )
+  ).filter((action) => action.kind === "split");
+  if (splits.length === 0) return false;
+
+  const exchange = (await loadExchanges(db)).find((entry) => entry.id === instrument.exchangeId);
+  if (!exchange) throw new Error(`Exchange ${instrument.exchangeId} not found`);
+  const stored = await findCorporateActions(
+    db,
+    splits.map((split) => split.id),
+  );
+  return splits.some((split) => {
+    const booked = stored.get(split.id);
+    if (booked && hasBooked(events, booked.action.id)) return false;
+    const effectiveAt = startOfExchangeDay(exchange, split.effectiveDate);
+    if (effectiveAt.toMillis() > now.toMillis()) return false;
+    return quantityHeldBefore(input.currency, events, instrument.id, effectiveAt).greaterThan(0);
+  });
 }
 
 async function tradeContext(
@@ -122,7 +170,10 @@ export async function createQuote(
     now,
   });
 
-  const state = replay(league.currency, await loadMemberEvents(db, member.id, league.currency));
+  const events = await loadMemberEvents(db, member.id, league.currency);
+  if (await hasPendingSplit(db, provider, { instrument, events, currency: league.currency, now }))
+    return { ok: false, rejections: [{ code: "SPLIT_PENDING" }] };
+  const state = replay(league.currency, events);
   const validation = validateTrade(
     await tradeContext(db, provider, { quote, instrument, state, leagueId: league.id, now }),
   );
@@ -192,6 +243,15 @@ export async function executeTrade(
 
     const quote = toQuote(row, league.currency);
     const events = await loadMemberEvents(tx, member.id, league.currency);
+    if (
+      await hasPendingSplit(tx, provider, {
+        instrument,
+        events,
+        currency: league.currency,
+        now: input.now,
+      })
+    )
+      return { ok: false, rejections: [{ code: "SPLIT_PENDING" }] };
     const state = replay(league.currency, events);
     const validation = validateTrade(
       await tradeContext(tx, provider, {

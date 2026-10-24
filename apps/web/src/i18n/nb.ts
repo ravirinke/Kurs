@@ -60,6 +60,44 @@ export const nb = {
       reset: "Tilbake til ekte tid",
       active: "Tidsmaskinen er på",
     },
+    simulate: {
+      title: "Simulerte selskapshendelser (bare i utvikling)",
+      intro:
+        "Legg inn en splitt eller et utbytte som mock-kursene skal late som har skjedd. Jobbene henter dem fra kursleverandøren, akkurat som de ville gjort med ekte data.",
+      instrument: "Aksje",
+      split: "Splitt",
+      effectiveDate: "Gjelder fra",
+      ratioFrom: "Gamle aksjer",
+      ratioTo: "Nye aksjer",
+      ratioHint: "1 og 10 betyr at hver aksje blir til 10.",
+      addSplit: "Legg inn splitt",
+      dividend: "Utbytte",
+      exDate: "Eks-dato",
+      payDate: "Betalingsdato",
+      amountPerShare: "Beløp per aksje",
+      currency: "Valuta",
+      addDividend: "Legg inn utbytte",
+      added: "Lagt inn. Kjør jobbene for å bokføre den.",
+      invalid:
+        "Sjekk feltene: datoer, et forhold over 0 og et beløp over 0 med maks fire desimaler.",
+      payBeforeEx: "Betalingsdatoen kan ikke være før eks-datoen.",
+      listTitle: "Lagt inn",
+      none: "Ingen ennå.",
+      splitLine: (name: string, from: string, to: string, date: string) =>
+        `Splitt ${from}:${to} i ${name}, gjelder fra ${date}`,
+      dividendLine: (name: string, amount: string, exDate: string, payDate: string) =>
+        `Utbytte ${amount} per aksje i ${name}, eks-dato ${exDate}, betales ${payDate}`,
+    },
+    jobs: {
+      title: "Jobber (bare i utvikling)",
+      intro:
+        "Kjører den daglige jobben nå, med appens klokke: selskapshendelser, avslutning av ligaer og snapshots. Til vanlig kjører den av seg selv kl. 06:30.",
+      run: "Kjør jobber nå",
+      running: "Kjører …",
+      done: (booked: number, finalized: number, snapshots: number) =>
+        `Ferdig: ${String(booked)} selskapshendelser bokført, ${String(finalized)} ligaer avsluttet, ${String(snapshots)} snapshots lagret.`,
+      failed: "Jobbene feilet. Se terminalen der appen kjører.",
+    },
   },
   errors: {
     NAME_REQUIRED: "Skriv inn et navn.",
@@ -107,6 +145,8 @@ export const nb = {
     QUOTE_NOT_FOUND: "Fant ikke prisen. Hent en ny.",
     QUOTE_ALREADY_USED: "Denne prisen er allerede brukt.",
     IDEMPOTENCY_KEY_REUSED: "Noe gikk galt. Lukk og prøv igjen.",
+    SPLIT_PENDING:
+      "Aksjen har nettopp hatt en aksjesplitt som ikke er ferdig bokført. Prøv igjen litt senere.",
     AMOUNT_TOO_SMALL: "Beløpet rekker ikke til én aksje med kurtasje.",
     unknown: "Noe gikk galt. Prøv igjen.",
   },

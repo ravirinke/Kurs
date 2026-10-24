@@ -1,10 +1,16 @@
 import "server-only";
 
 import { type Exchange, fixedClock, type Instrument, type PriceProvider } from "@aksjeliga/core";
-import { buildMockPriceProvider, loadExchanges, loadInstruments } from "@aksjeliga/db";
+import {
+  buildMockPriceProvider,
+  loadExchanges,
+  loadInstruments,
+  loadSimulatedCorporateActions,
+} from "@aksjeliga/db";
 import type { DateTime } from "luxon";
 
 import { getDb } from "./db";
+import { serverEnv } from "./env";
 
 /*
  * The one place that decides which PriceProvider the app uses. Today: the mock. Swapping in
@@ -25,8 +31,19 @@ function loadReferenceData() {
   return referenceData;
 }
 
-/** A provider whose "now" is the request's now (so the dev time machine works too). */
+/**
+ * A provider whose "now" is the request's now (so the dev time machine works too). In
+ * development it also knows the splits and dividends simulated on the profile page.
+ */
 export async function getPrices(now: DateTime): Promise<PriceProvider> {
   const { exchanges, instruments } = await loadReferenceData();
-  return buildMockPriceProvider({ clock: fixedClock(now), exchanges, instruments });
+  const corporateActions = serverEnv.timeTravelEnabled
+    ? await loadSimulatedCorporateActions(getDb())
+    : [];
+  return buildMockPriceProvider({
+    clock: fixedClock(now),
+    exchanges,
+    instruments,
+    corporateActions,
+  });
 }

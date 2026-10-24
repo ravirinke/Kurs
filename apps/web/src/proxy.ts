@@ -7,7 +7,8 @@ import { type NextRequest, NextResponse } from "next/server";
  * Pages still check the user on the server; this is not the only guard.
  */
 
-const PUBLIC_PATHS = ["/logg-inn", "/auth"];
+// Cron endpoints check their own secret (CRON_SECRET) instead of a signed-in user.
+const PUBLIC_PATHS = ["/logg-inn", "/auth", "/api/cron"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

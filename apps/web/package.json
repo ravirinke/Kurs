@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "jobs": "node scripts/jobs.ts"
   },
   "dependencies": {
     "@aksjeliga/core": "workspace:*",

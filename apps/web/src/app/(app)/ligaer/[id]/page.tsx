@@ -1,5 +1,6 @@
 import { deriveLeagueStatus } from "@aksjeliga/core";
 import {
+  finalizeLeagueIfDue,
   loadActivity,
   loadActiveMembers,
   loadExchanges,
@@ -58,6 +59,8 @@ export default async function LeaguePage({
   const now = await serverNow();
   const db = getDb();
   const prices = await getPrices(now);
+  // A league that ended since the last job run gets its final result now (idempotent).
+  await finalizeLeagueIfDue(db, prices, { leagueId: id, now });
   const board = await loadLeaderboard(db, prices, id, now);
   if (!board) notFound();
   const status = deriveLeagueStatus(league, now);

@@ -185,8 +185,12 @@ export async function loadLeaderboard(
     ),
   );
   const byId = new Map(members.map((member) => [member.memberId, member]));
+  // Only once the league has ended: with the dev time machine a league can be finalized
+  // "in the future" and then viewed at an earlier time.
   const isFinal =
-    league.finalizedAt !== null && members.every((member) => member.finalRank !== null);
+    status === "finished" &&
+    league.finalizedAt !== null &&
+    members.every((member) => member.finalRank !== null);
 
   const rows: LeaderboardRow[] = ranked.map((entry) => {
     const member = must(byId.get(entry.memberId), "member");

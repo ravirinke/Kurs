@@ -130,3 +130,21 @@ Technical:
 - Not decided yet: SMTP and domain, the exact price APIs.
 - Until then: local development with the Supabase CLI stays. No hard-coded hosts in app code; jobs (phase 5) are plain HTTP endpoints protected by `CRON_SECRET`, so any scheduler can call them.
 - **Prices are fetched by the server and stored in the database; users always read them from the database** (the `prices` and `fx_rates` tables), never straight from an API or the scraper. This keeps us within the free APIs' rate limits and means a source being down only makes prices older, not missing. Details (how often, how old a price may be when trading) go in the phase 6 plan.
+
+## 2026-10-24 – Phase 5: jobs (planned with the product owner)
+
+- **One daily run at 06:30 Europe/Oslo** does everything, in order: corporate actions, then league finalization, then snapshots. At that time a new day has started in New York but no exchange has opened, so splits are booked before anyone can trade, and it fits Vercel's free plan (one cron run per day).
+- **Finalization also runs on demand** when someone opens a league that has ended but has no stored result, so the winner shows at once. Safe because the result is computed for `endsAt`, not for the time the job runs, and written only once.
+- **Dividends paid after the league's end do not count** for that league. The result is frozen at the end.
+- **Dev panel on the profile page** (only with `ALLOW_TIME_TRAVEL=1`): simulate a split or dividend for the mock and "Kjør jobber nå" using the time machine's "now". Also `pnpm jobs [name]` from the command line.
+- **Trading an instrument with a split that has taken effect but is not booked yet is rejected**, so nobody trades at the wrong quantity in the gap before the job runs.
+
+Technical (phase 5):
+
+- **Corporate actions come only from the `PriceProvider`.** Each run asks it for actions in the last 60 days for every instrument bought in a running or recently ended league, stores them in `corporate_actions` (new `external_id`, unique, so fetching again stores nothing) and books those that are due. A split is booked at the start of its effective date and a dividend at the start of its pay date (exchange time), even when the job runs later, so the ledger looks as if it had run on time. Members who held no shares at that instant get nothing.
+- **Idempotency:** the job locks the member row like a trade, checks the ledger, and the unique index `(member_id, corporate_action_id)` backs it up. Finalization locks the league row and does nothing once `finalized_at` is set. Snapshots insert with `on conflict do nothing` on `(member_id, date)`.
+- **Finalization first books corporate actions due before the end**, so the frozen result includes them. The stored result is only shown once the league has ended (with the time machine a league can be finalized "in the future").
+- **Snapshots** are taken for finished days only (Europe/Oslo), valued at the end of the day (or at the league's end on its last day). A run fills in up to 31 missed days.
+- **Simulated corporate actions** live in a dev-only table, `simulated_corporate_actions` (no grants, RLS on). The web's `getPrices` gives them to the mock provider when `ALLOW_TIME_TRAVEL=1`; the jobs then see them through the provider like real ones.
+- **`pnpm jobs`** calls the cron endpoint over HTTP (`APP_URL` + `CRON_SECRET`), so there is still only one place that builds the `PriceProvider`.
+- **Known gap:** between the start of a split's effective date and the 06:30 run (at most a few hours at night), the leaderboard values a holder's old quantity at the new price. Trading is blocked for them in that gap (`SPLIT_PENDING`), and the run happens before any exchange opens.

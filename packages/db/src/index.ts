@@ -1,8 +1,10 @@
 // Database access for the server. Never import this from client components.
 export * from "./client";
 export * from "./env";
+export * from "./jobs";
 export * from "./mappers";
 export * from "./mock-prices";
+export * from "./repositories/corporate-actions";
 export * from "./repositories/leagues";
 export * from "./repositories/ledger";
 export * from "./repositories/reference";

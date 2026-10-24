@@ -3,9 +3,15 @@
 En app der venner konkurrerer i ligaer ved å handle ekte aksjer med **fiktive penger**.
 Arbeidsnavnet «Kurs» ligger i `apps/web/src/i18n/nb.ts` og kan byttes der.
 
-- Oppdraget: [`docs/oppdrag.md`](docs/oppdrag.md)
-- Design: [`docs/design.md`](docs/design.md)
-- Arkitekturvalg: [`docs/decisions.md`](docs/decisions.md)
+## Dokumentasjon
+
+| Dokument                                   | Les den når du vil vite …                                                                                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`docs/arkitektur.md`](docs/arkitektur.md) | **hvordan appen fungerer i dag**: delene, et kjøp fra start til slutt, penger og valuta, synlighet og sikkerhet, kurser, jobber og datamodell. Start her. |
+| [`docs/oppdrag.md`](docs/oppdrag.md)       | hva vi skal bygge, og fasene (kilden til sannhet for produktet)                                                                                           |
+| [`docs/decisions.md`](docs/decisions.md)   | hvorfor noe er som det er: alle avklaringer og valg, i tidsrekkefølge                                                                                     |
+| [`docs/design.md`](docs/design.md)         | farger, typografi, komponenter og hva vi tok med fra Nordnet                                                                                              |
+| [`CLAUDE.md`](CLAUDE.md)                   | reglene og konvensjonene Claude Code jobber etter (på engelsk)                                                                                            |
 
 ## Krav
 
@@ -68,6 +74,15 @@ Stopp Supabase med `pnpm db:stop` når du er ferdig.
 
 **Tidsmaskin (bare lokalt):** under «Profil» kan du flytte appens klokke, for eksempel til en lørdag for å se at handel blir avvist når børsen er stengt, eller til en tirsdag kl. 15:00 når både Oslo Børs og Nasdaq er åpne. Et oransje banner viser at tidsmaskinen er på. Den er avslått i produksjon (`ALLOW_TIME_TRAVEL` i `.env`).
 
+**Jobber:** tre bakgrunnsjobber bokfører splitter og utbytte, avslutter ligaer som er ferdige (lagrer plassering og vinner) og lagrer daglige snapshots av porteføljeverdiene. I produksjon kjøres de av cron én gang i døgnet, kl. 06:30 norsk tid (`/api/cron/daily`, beskyttet med `CRON_SECRET`). Alle tåler å kjøres flere ganger. Lokalt kjører du dem selv:
+
+- med **«Kjør jobber nå»** under «Profil» (bruker tidsmaskinens klokke), eller
+- med **`pnpm jobs`** mens `pnpm dev` kjører: `pnpm jobs` (alle), `pnpm jobs finalize` (én jobb: `corporate-actions`, `finalize` eller `snapshots`), `pnpm jobs --now 2026-11-02T06:30+01:00` (som om klokka var en annen).
+
+En liga som er slutt, avsluttes også med en gang noen åpner den, så vinneren vises uten å vente på jobben.
+
+**Simulere splitt og utbytte (bare lokalt):** under «Profil» kan du legge inn en splitt eller et utbytte på en aksje. Mock-kursene oppfører seg deretter, og jobbene bokfører hendelsen. Prøv for eksempel: kjøp Apple, legg inn en 1:10-splitt fra i morgen, flytt tidsmaskinen til i morgen og kjør jobbene. Du har da ti ganger så mange aksjer, og verdien er den samme.
+
 ## Skript
 
 Kjøres fra rotmappen. Turborepo kjører dem i alle pakker.
@@ -86,6 +101,7 @@ Kjøres fra rotmappen. Turborepo kjører dem i alle pakker.
 | `pnpm db:reset`                           | Tom database, alle migrasjoner og testdata                    |
 | `pnpm db:seed`                            | Fyller inn testdata (trygt å kjøre flere ganger)              |
 | `pnpm db:generate`                        | Lager en ny migrasjon etter endring i Drizzle-skjemaet        |
+| `pnpm jobs [navn] [--now <tid>]`          | Kjører cron-jobbene mot appen som kjører (krever `pnpm dev`)  |
 
 ## Struktur
 
@@ -94,15 +110,15 @@ apps/
   web/          Next.js (App Router), Tailwind, shadcn/ui
 packages/
   core/         All forretningslogikk. Ren TypeScript, ingen I/O.
-  db/           Drizzle-skjema, migrasjoner, seed
+  db/           Drizzle-skjema, tjenester, jobber, seed
   config/       Delt tsconfig, ESLint, Prettier og Vitest
 supabase/       Lokal Supabase-konfig og migrasjoner (SQL)
-docs/           Oppdrag, design og beslutninger
+docs/           Arkitektur, oppdrag, design og beslutninger
 ```
 
 ## Ende-til-ende-tester
 
-`pnpm test:e2e` starter appen (eller bruker den som kjører) og går gjennom innlogging via Mailpit, opprett liga, invitasjon og godkjenning, kjøp av norske og amerikanske aksjer, ledertabell og avvisning når børsen er stengt. Første gang: `pnpm --filter @aksjeliga/web exec playwright install chromium`. Testen lager egne brukere, så testdataene dine blir ikke rotete.
+`pnpm test:e2e` starter appen (eller bruker den som kjører) og går gjennom innlogging via Mailpit, opprett liga, invitasjon og godkjenning, kjøp av norske og amerikanske aksjer, ledertabell, avvisning når børsen er stengt, og avslutning av en liga med vinner. Første gang: `pnpm --filter @aksjeliga/web exec playwright install chromium`. Testen lager egne brukere, så testdataene dine blir ikke rotete.
 
 Skjermbilder av alle hovedsidene til designsjekk: `SCREENSHOTS=1 pnpm --filter @aksjeliga/web exec playwright test screenshots` (legg til `DARK=1` for mørk modus). Bildene havner i `apps/web/test-results/screens`.
 
