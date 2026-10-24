@@ -121,3 +121,12 @@ Technical:
 ## 2026-10-23 – App name
 
 - The app is now called **Kurs** (was the working name "Aksjeliga"). Only the user-facing name changed (`nb.app.name`, README, design doc). Internal identifiers (`@aksjeliga/*` package scope, Supabase project id, cookie names) stay as they are.
+
+## 2026-10-24 – Real prices (phase 6) and external hosting (phase 7)
+
+- The goal is to host the app externally so the product owner can play with friends. Added as **phase 6 – Ekte aksjekurser** and **phase 7 – Publisering** in `docs/oppdrag.md` (marked as addenda, the original text is kept). Real prices come first, since playing with friends on mock prices makes little sense.
+- **Web app hosting: Vercel** (product owner's choice). **Database and auth: Supabase Cloud** (decided). Firebase was considered and rejected: Firestore has no decimal type, no row locks, no joins and no SQL triggers or RLS, so `packages/db` and the money and visibility guarantees would have to be rebuilt. Watch out: a free Supabase project is paused after a week of inactivity; check in phase 7 that the daily job keeps it awake, or use the paid plan.
+- Price sources (product owner's plan, to be detailed in the phase 6 plan): a free API for Nasdaq, scraping Yahoo with a script for Oslo Børs. Stockholm, Copenhagen and NYSE not looked at yet.
+- Not decided yet: SMTP and domain, the exact price APIs.
+- Until then: local development with the Supabase CLI stays. No hard-coded hosts in app code; jobs (phase 5) are plain HTTP endpoints protected by `CRON_SECRET`, so any scheduler can call them.
+- **Prices are fetched by the server and stored in the database; users always read them from the database** (the `prices` and `fx_rates` tables), never straight from an API or the scraper. This keeps us within the free APIs' rate limits and means a source being down only makes prices older, not missing. Details (how often, how old a price may be when trading) go in the phase 6 plan.

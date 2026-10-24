@@ -1,6 +1,7 @@
 # Oppdrag: Fundamentet til en aksjeliga-app med fiktive penger
 
 > Dette er den opprinnelige oppdragsbeskrivelsen, lagret ordrett. Den er kilden til sannhet for hva vi bygger.
+> Senere tillegg fra produkteier er merket «Tillegg» med dato.
 > Avklaringer og avvik som kommer underveis, noteres i `docs/decisions.md`.
 
 Du skal sette opp fundamentet til en app der venner konkurrerer i ligaer ved å handle ekte aksjer med fiktive penger. Dette er et langsiktig prosjekt som først blir en web-app og senere en mobilapp. Kvalitet og riktig arkitektur er viktigere enn fart.
@@ -155,8 +156,14 @@ Bruk et midlertidig app-navn (for eksempel "Aksjeliga") samlet på ett sted, så
 
 **Fase 5 – Jobber:** cron-endepunkter for daglige snapshots, avslutning av liga og behandling av selskapshendelser. Alle skal være idempotente og kunne kjøres manuelt lokalt.
 
+**Fase 6 – Ekte aksjekurser** *(Tillegg 2026-10-24)***:** en ekte `PriceProvider` som erstatter mocken. Plan fra produkteier: et gratis API for Nasdaq, og webscraping av Yahoo med et script for Oslo Børs. De andre børsene (Stockholm, København, NYSE) er ikke vurdert ennå. Fasen dekker også valutakurser, sluttkurser og selskapshendelser (splitt og utbytte), mellomlagring av kurser slik at vi holder oss innenfor gratisgrensene, og hva som skjer når en kilde er nede. Mocken beholdes for tester og lokal utvikling.
+
+**Fase 7 – Publisering** *(Tillegg 2026-10-24)***:** appen skal kunne hostes eksternt, slik at vi kan spille med venner. Web-appen hostes på **Vercel**. Fasen dekker hostet database og innlogging (Supabase Cloud), cron for jobbene fra fase 5, ekte e-post for innloggingslenker (SMTP og domene), miljøvariabler og hemmeligheter, migrasjoner mot produksjon, og tidsmaskinen avslått. Lokal utvikling med Supabase CLI fortsetter som før.
+
 ## 8. Utenfor omfang nå
-Ekte kurs-API, Expo-app, limit-ordrer og ordrekø, push-varsler, chat og sosiale funksjoner utover ligaen, betaling, og flere språk enn norsk.
+Ekte kurs-API *(Tillegg 2026-10-24: flyttet inn som fase 6)*, Expo-app, limit-ordrer og ordrekø, push-varsler, chat og sosiale funksjoner utover ligaen, betaling, og flere språk enn norsk.
 
 ## 9. Ferdig betyr
 `pnpm install && pnpm dev` starter alt lokalt etter README-en. `pnpm test`, `pnpm typecheck` og `pnpm lint` går grønt. Jeg kan logge inn, opprette en liga, invitere en testbruker, handle norske og amerikanske aksjer med riktig valutaomregning, bli avvist når børsen er stengt, se tabellen og kjøre avslutningsjobben og se en vinner.
+
+*(Tillegg 2026-10-24)* Etter fase 6 og 7: kursene er ekte, og venner kan logge inn på en offentlig adresse, bli med i en liga og handle, og jobbene kjører automatisk uten at noen gjør noe.

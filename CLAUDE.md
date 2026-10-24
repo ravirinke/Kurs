@@ -9,6 +9,7 @@ Full brief: `docs/oppdrag.md` (Norwegian, source of truth). Design: `docs/design
 - If something is unclear or conflicting, ask instead of guessing. Record clarifications in `docs/decisions.md`.
 - Talk to the product owner in Norwegian. Code, identifiers, comments and commits are in English.
 - **Never commit or push without the product owner's explicit permission**, each time. When a phase is done, say it is ready to commit and wait.
+- **Goal: host it externally so friends can play** on Vercel (phase 7), with real prices first (phase 6). Until then everything runs locally, but don't lock us out: all URLs, keys and secrets come from env (never hard-code `localhost` or ports in app code), dev-only tools stay behind `ALLOW_TIME_TRAVEL`, and jobs must work when triggered by an external scheduler over HTTP.
 
 ## Commands
 
