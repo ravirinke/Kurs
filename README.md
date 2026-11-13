@@ -54,7 +54,7 @@ Appen håndterer «penger», og det er lett å gjøre feil med penger i kode. De
 Jeg har laget appen med [Claude Code](https://claude.com/claude-code) som utviklingsverktøy. Min rolle har vært produkteier og arkitekt:
 
 - Jeg skrev [kravspesifikasjonen](docs/oppdrag.md) med produktregler, tekniske prinsipper og en plan i faser.
-- Hver fase ble planlagt, gjennomgått og testet av meg før den ble godkjent. Ingenting ble committet uten at jeg sa ja.
+- Jeg godkjente planen for hver fase før arbeidet startet. Ingenting ble committet uten at jeg sa ja.
 - Avklaringer og valg underveis er skrevet ned i [`docs/decisions.md`](docs/decisions.md), og reglene AI-en må følge, i [`CLAUDE.md`](CLAUDE.md).
 
 Det viktigste jeg har lært, er at AI skriver kode raskt, men at kvaliteten avhenger av tydelige krav, faste regler og tester som sjekker at reglene holder.
