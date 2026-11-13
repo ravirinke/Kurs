@@ -5,6 +5,8 @@ import { setTime, signIn } from "./helpers";
 /*
  * Not a test of behaviour: walks through the main pages and saves screenshots for design
  * review (test-results/screens). Run with: pnpm --filter @aksjeliga/web exec playwright test screenshots
+ * Options: DARK=1 (dark mode), SCREENSHOT_TIME=<ISO> (time machine), CLEAN=1 (hide the dev
+ * indicator and the time machine banner, for screenshots in the README).
  */
 test.skip(!process.env["SCREENSHOTS"], "Set SCREENSHOTS=1 to take design screenshots");
 
@@ -15,13 +17,17 @@ test("screenshots of the main pages", async ({ browser }, testInfo) => {
     timezoneId: "Europe/Oslo",
     colorScheme: process.env["DARK"] ? "dark" : "light",
   });
-  await setTime(context, "2026-10-27T14:00:00Z");
+  await setTime(context, process.env["SCREENSHOT_TIME"] ?? "2026-10-27T14:00:00Z");
   const page = await context.newPage();
+  const style = process.env["CLEAN"]
+    ? 'nextjs-portal, a[href="/profil"].bg-warning { display: none !important; }'
+    : "";
   const shot = async (name: string) => {
     await page.waitForLoadState("networkidle");
     await page.screenshot({
       path: `test-results/screens/${testInfo.project.name}-${name}.png`,
       fullPage: true,
+      style,
     });
   };
 
@@ -53,6 +59,7 @@ test("screenshots of the main pages", async ({ browser }, testInfo) => {
   await expect(page.getByTestId("quote-total")).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${testInfo.project.name}-08-trade-sheet.png`,
+    style,
   });
   await page.keyboard.press("Escape");
   await page.goto(`${leagueUrl}/portefolje`);

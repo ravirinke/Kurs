@@ -1,7 +1,63 @@
 # Kurs
 
 En app der venner konkurrerer i ligaer ved å handle ekte aksjer med **fiktive penger**.
-Arbeidsnavnet «Kurs» ligger i `apps/web/src/i18n/nb.ts` og kan byttes der.
+
+Du lager en liga, inviterer venner med en kode og bestemmer reglene: valuta, startsum, start- og sluttdato, kurtasje, hvilke børser som er tillatt og hvor stor andel én aksje kan utgjøre. Alle starter likt og handler på Oslo Børs, Stockholm, København, Nasdaq og NYSE. Ledertabellen rangerer på avkastning i prosent, og når ligaen er slutt, fryses resultatet og en vinner kåres.
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/skjermbilder/dark-02-league-table.png">
+    <img src="docs/skjermbilder/light-02-league-table.png" alt="Ligaside med ledertabell" width="260">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/skjermbilder/dark-07-stock.png">
+    <img src="docs/skjermbilder/light-07-stock.png" alt="Aksjeside med graf og markedsstatus" width="260">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/skjermbilder/dark-08-trade-sheet.png">
+    <img src="docs/skjermbilder/light-08-trade-sheet.png" alt="Kjøp med prisestimat, valutaomregning og kurtasje" width="260">
+  </picture>
+</p>
+
+<sub>Ledertabellen, en aksjeside og et kjøp med låst pris. Kursene på bildene er oppdiktede, fra mock-provideren.</sub>
+
+## Status
+
+| Fase | Innhold                                                                           | Status      |
+| ---- | --------------------------------------------------------------------------------- | ----------- |
+| 0–1  | Analyse, design, monorepo og verktøy                                              | ✅ Ferdig   |
+| 2    | Forretningslogikk i `packages/core`, med tester                                   | ✅ Ferdig   |
+| 3    | Database, migrasjoner, sikkerhet (RLS) og testdata                                | ✅ Ferdig   |
+| 4    | Webappen: innlogging, ligaer, handel, portefølje og verktøy for ligaeieren        | ✅ Ferdig   |
+| 5    | Bakgrunnsjobber: splitt og utbytte, avslutning av liga og daglige snapshots       | ✅ Ferdig   |
+| 6    | Ekte aksjekurser (i dag brukes realistiske, oppdiktede kurser bak et grensesnitt) | ⏳ Neste    |
+| 7    | Publisering på Vercel og Supabase Cloud, så venner kan spille                     | ⏳ Planlagt |
+
+## Det tekniske jeg er mest fornøyd med
+
+Appen håndterer «penger», og det er lett å gjøre feil med penger i kode. Derfor er noen regler ufravikelige:
+
+- **Aldri flyttall for penger.** Beløp, kurser, valutakurser og antall er `decimal.js` i TypeScript og `numeric` i Postgres. Avrunding (halv opp) skjer bare når et beløp bokføres eller vises, og databasen avviser for mange desimaler i stedet for å runde av i stillhet.
+- **Serveren bestemmer prisen.** Nettleseren sender bare aksje, kjøp/salg og antall. Serveren lager et pristilbud som gjelder i 30 sekunder og bare kan brukes én gang.
+- **Hver handel er atomisk.** Én databasetransaksjon, radlås på medlemmet (`SELECT … FOR UPDATE`) og en idempotensnøkkel. Et dobbeltklikk eller to samtidige kjøp kan aldri bruke de samme pengene to ganger. Dette er bevist med en egen samtidighetstest.
+- **Transaksjoner er sannheten.** Kjøp, salg, gebyrer, utbytte og splitter er hendelser som bare kan legges til. En databasetrigger blokkerer endring og sletting. Beholdning og kontanter kan alltid bygges opp på nytt fra hendelsene.
+- **Sikkerhet i databasen, ikke bare i grensesnittet.** Hvem som kan se hvem sin portefølje, er én funksjon i `core` og samme regel i SQL (Row Level Security). En test sjekker at de to alltid er enige.
+- **Tid og børser.** All tid lagres i UTC. Åpningstider, helligdager og halve dager er definert i børsens egen tidssone, og testene dekker blant annet uka der Europa og USA har byttet til sommertid på ulike datoer.
+- **Ren forretningslogikk.** All logikk ligger i `packages/core`, som er ren TypeScript uten I/O (håndhevet med ESLint). Den kan testes isolert og gjenbrukes i en mobilapp senere.
+- **Jobber som tåler å kjøres flere ganger.** Splitter, utbytte, avslutning av ligaer og snapshots kjøres av cron over HTTP og gir samme resultat om de kjøres to ganger.
+- **Testet på flere nivåer:** enhetstester (Vitest), integrasjonstester mot en ekte Postgres, og ende-til-ende-tester i nettleseren (Playwright) som går gjennom innlogging, liga, invitasjon, handel og kåring av vinner.
+
+**Teknologi:** TypeScript (strict), Next.js (App Router), Tailwind CSS, shadcn/ui, PostgreSQL via Supabase (Auth og RLS), Drizzle ORM, Luxon, decimal.js, Vitest, Playwright, pnpm og Turborepo.
+
+## Hvordan appen er laget
+
+Jeg har laget appen med [Claude Code](https://claude.com/claude-code) som utviklingsverktøy. Min rolle har vært produkteier og arkitekt:
+
+- Jeg skrev [kravspesifikasjonen](docs/oppdrag.md) med produktregler, tekniske prinsipper og en plan i faser.
+- Hver fase ble planlagt, gjennomgått og testet av meg før den ble godkjent. Ingenting ble committet uten at jeg sa ja.
+- Avklaringer og valg underveis er skrevet ned i [`docs/decisions.md`](docs/decisions.md), og reglene AI-en må følge, i [`CLAUDE.md`](CLAUDE.md).
+
+Det viktigste jeg har lært, er at AI skriver kode raskt, men at kvaliteten avhenger av tydelige krav, faste regler og tester som sjekker at reglene holder.
 
 ## Dokumentasjon
 

@@ -148,3 +148,13 @@ Technical (phase 5):
 - **Simulated corporate actions** live in a dev-only table, `simulated_corporate_actions` (no grants, RLS on). The web's `getPrices` gives them to the mock provider when `ALLOW_TIME_TRAVEL=1`; the jobs then see them through the provider like real ones.
 - **`pnpm jobs`** calls the cron endpoint over HTTP (`APP_URL` + `CRON_SECRET`), so there is still only one place that builds the `PriceProvider`.
 - **Known gap:** between the start of a split's effective date and the 06:30 run (at most a few hours at night), the leaderboard values a holder's old quantity at the new price. Trading is blocked for them in that gap (`SPLIT_PENDING`), and the run happens before any exchange opens.
+
+## 2026-11-13 – Phase 6 direction: fetching prices without a frequent cron
+
+- **No cron for prices.** Vercel's free plan runs cron once a day, which stays reserved for the daily jobs (phase 5). Prices are fetched **on demand** instead: when a page or a quote needs a price, the server reads it from the database; if it is too old, it fetches it from the source, stores it and uses it (read-through cache). This keeps the 2026-10-24 rule that users always read prices from the database.
+- **The cache lives in Postgres**, not in server memory, because Vercel's serverless instances start and stop all the time.
+- **Freshness (proposal, to be confirmed in the phase 6 plan):** about 1 minute while the exchange is open; while it is closed, the last close is valid until the next open. Leaderboard and league pages fetch all held instruments in one batched request.
+- **Source down:** use the last stored price and show its age. A quote is rejected if the price is too old to trade on.
+- **If something must run more often later:** the cron endpoint is plain HTTP with `CRON_SECRET`, so an external scheduler (GitHub Actions `schedule`, cron-job.org or Supabase `pg_cron` + `pg_net`) can call it. Not needed for prices.
+- **Sources:** Nasdaq has an API (product owner). **Oslo Børs is the hard one** and still open. Candidates to evaluate: Yahoo's unofficial endpoints (`.OL` tickers), Euronext's public pages (Oslo Børs is part of Euronext), or a data API with a free tier that covers Oslo. Stockholm, Copenhagen and NYSE are still not looked at.
+- **Risks to check early in phase 6:** unofficial sources can change or break without notice and their terms usually forbid automated use (acceptable for a private friends league, not for anything commercial); Yahoo often blocks requests from cloud IPs, so test from Vercel, not only locally; free Oslo data is often delayed (typically 15 minutes), which the product owner must decide how to handle (accept and show the delay, or not).
