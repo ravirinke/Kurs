@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   date,
   index,
@@ -11,12 +12,16 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { AMOUNT_SCALE, decimalColumn, maxScale, timestamptz } from "./columns";
+import { AMOUNT_SCALE, decimalColumn, maxScale, PRICE_SCALE, timestamptz } from "./columns";
 import { corporateActionKindEnum, currencyEnum, priceKindEnum } from "./enums";
 import { leagueMembers, leagues } from "./leagues";
 import { instruments } from "./reference";
 
-/** Prices fetched from the PriceProvider, kept for charts and snapshots. */
+/**
+ * Price bars fetched from the market-data sources: "close" is a trading day's close (at the
+ * session's closing time), "intraday" a 5-minute bar (at the bar's end). Prices are stored
+ * as traded, NOT adjusted for later splits, so a stored row never needs to change.
+ */
 export const prices = pgTable(
   "prices",
   {
@@ -27,11 +32,57 @@ export const prices = pgTable(
     at: timestamptz("at").notNull(),
     price: decimalColumn("price").notNull(),
     currency: currencyEnum("currency").notNull(),
+    /** A close fetched too soon after the close is provisional and is fetched again. */
+    fetchedAt: timestamptz("fetched_at").notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.instrumentId, table.kind, table.at] })],
+  (table) => [
+    primaryKey({ columns: [table.instrumentId, table.kind, table.at] }),
+    check("price_positive", sql`${table.price} > 0`),
+    check("price_scale", maxScale(table.price, PRICE_SCALE)),
+  ],
 );
 
-/** FX rates fetched from the PriceProvider, e.g. frozen at an exchange's close. */
+/** The newest price each source has given us for an instrument (one row per instrument). */
+export const latestQuotes = pgTable(
+  "latest_quotes",
+  {
+    instrumentId: uuid("instrument_id")
+      .primaryKey()
+      .references(() => instruments.id),
+    price: decimalColumn("price").notNull(),
+    currency: currencyEnum("currency").notNull(),
+    /** Time of the last trade, according to the source. */
+    at: timestamptz("at").notNull(),
+    /** When we fetched it. */
+    fetchedAt: timestamptz("fetched_at").notNull(),
+    /** The source publishes this price with a delay. */
+    delayed: boolean("delayed").notNull(),
+  },
+  (table) => [
+    check("latest_quote_positive", sql`${table.price} > 0`),
+    check("latest_quote_scale", maxScale(table.price, PRICE_SCALE)),
+  ],
+);
+
+/**
+ * Bookkeeping for the read-through price cache: when each series ("quote:<instrument>",
+ * "daily:<instrument>", "fx", …) was last attempted and last fetched, so many server
+ * instances do not fetch the same thing at once and a failing source is not hammered.
+ */
+export const priceFetchState = pgTable("price_fetch_state", {
+  key: text("key").primaryKey(),
+  attemptedAt: timestamptz("attempted_at").notNull(),
+  fetchedAt: timestamptz("fetched_at"),
+  /** Start of the period the stored history covers. */
+  coveredFrom: timestamptz("covered_from"),
+  lastError: text("last_error"),
+  lastErrorAt: timestamptz("last_error_at"),
+});
+
+/**
+ * FX rates fetched from the market-data sources, always stored from USD (USD → NOK, …);
+ * other pairs are derived. A rate applies from `at` until the next row.
+ */
 export const fxRates = pgTable(
   "fx_rates",
   {

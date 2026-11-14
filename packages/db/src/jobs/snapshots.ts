@@ -1,6 +1,8 @@
 import {
   APP_TIME_ZONE,
   localDate,
+  type Money,
+  PriceDataError,
   type PriceProvider,
   replayUntil,
   returnFraction,
@@ -77,7 +79,15 @@ export async function takeDailySnapshots(
       const states = due.map((member) =>
         replayUntil(league.currency, events.get(member.memberId) ?? [], at),
       );
-      const { values } = await valueStates(db, provider, league.currency, states, at);
+      let values: Money[];
+      try {
+        ({ values } = await valueStates(db, provider, league.currency, states, at));
+      } catch (error) {
+        // No price for something held that day: leave the gap for a later run to fill.
+        if (!(error instanceof PriceDataError)) throw error;
+        console.warn(`[jobs] No snapshot for league ${league.id} on ${date}: ${error.message}`);
+        break;
+      }
       const rows = due.map((member, index) => {
         const value = must(values[index], "value");
         return {

@@ -1,6 +1,6 @@
 # Arkitektur
 
-Hvordan Kurs er bygget og fungerer **i dag** (etter fase 5). Dokumentet beskriver dagens tilstand, ikke historikken. Hvorfor ting er som de er, står i [`decisions.md`](decisions.md), og hva vi skal bygge, i [`oppdrag.md`](oppdrag.md).
+Hvordan Kurs er bygget og fungerer **i dag** (etter fase 6). Dokumentet beskriver dagens tilstand, ikke historikken. Hvorfor ting er som de er, står i [`decisions.md`](decisions.md), og hva vi skal bygge, i [`oppdrag.md`](oppdrag.md).
 
 Holdes oppdatert: endres noe her i en fase, oppdateres dette dokumentet i samme fase.
 
@@ -8,7 +8,7 @@ Holdes oppdatert: endres noe her i en fase, oppdateres dette dokumentet i samme 
 
 Venner lager **ligaer**, inviterer hverandre med en lenke eller kode og handler ekte aksjer med **fiktive penger**. Alle starter med samme sum i ligaens valuta. Ledertabellen rangerer på avkastning i prosent, og når ligaen er slutt, fryses resultatet og en vinner kåres.
 
-Kursene kommer foreløpig fra en **mock-provider** som lager realistiske, men oppdiktede kurser. Ekte kurser kommer i fase 6, publisering i fase 7.
+Kursene er **ekte** for Oslo Børs, Nasdaq og NYSE (`PRICE_PROVIDER=live`). Lokalt og i testene brukes en **mock-provider** med realistiske, men oppdiktede kurser. Publisering kommer i fase 7.
 
 ## Delene
 
@@ -113,22 +113,42 @@ Låserekkefølgen er alltid **medlem, så tilbud**. Det hindrer vranglås (deadl
 ## Kurser: `PriceProvider`
 
 - Alle kurser, valutakurser, åpningsstatus, kurshistorikk og selskapshendelser hentes **bare gjennom grensesnittet `PriceProvider`**. Ingen annen kode vet hvilken kilde som brukes.
-- **Hvilken provider** som brukes, bestemmes på ett sted: `apps/web/src/server/prices.ts`.
-- **I dag** er det `MockPriceProvider`: deterministiske kurser som beveger seg realistisk innenfor åpningstidene, med splittjustert historikk.
-- **Fra fase 6:** serveren henter ekte kurser og lagrer dem i databasen (tabellene `prices` og `fx_rates`, som er tomme i dag), og brukerne leser alltid derfra. Da holder vi oss innenfor gratisgrensene, og en kilde som er nede gir bare eldre kurser, ikke manglende.
-- **Børsene** (Oslo, Stockholm, København, Nasdaq og NYSE) har åpningstider definert i børsens lokale tid. Helligdager og halve dager ligger i `core` og legges inn i databasen av seed-skriptet. Alt lagres i UTC.
+- **Hvilken provider** som brukes, bestemmes på ett sted: `apps/web/src/server/prices.ts`, styrt av `PRICE_PROVIDER` i `.env`.
+  - **`mock`:** deterministiske, oppdiktede kurser. Brukes i testene og lokalt, og er den eneste som virker med tidsmaskinen.
+  - **`live`:** ekte kurser gjennom `CachedPriceProvider` i `packages/db/src/prices`.
+- **Kildene** (bak hver sin adapter i `packages/db/src/prices/sources`):
+
+  | Behov                                  | Kilde                               |
+  | -------------------------------------- | ----------------------------------- |
+  | Sanntidskurs Nasdaq og NYSE            | Finnhub (offisielt API, gratisplan) |
+  | Kurs Oslo Børs (ca. 15 min forsinket)  | Yahoo                               |
+  | Historikk, valuta, splitter og utbytte | Yahoo                               |
+  | Lister over aksjer                     | Finnhub (USA), Euronext (Oslo)      |
+
+  Hvilken kilde som brukes til hva, står i `live-market-data.ts`. Svarer ikke Finnhub, brukes Yahoo.
+
+- **Mellomlagring i databasen.** Serveren henter en kurs bare når noen trenger den og den lagrede er for gammel (over 60 sekunder mens børsen er åpen). Den lagres og brukes. Brukerne leser alltid fra databasen. Det holder oss innenfor gratisgrensene, og ingen cron trengs for kurser.
+  - Kurser som trengs i samme forespørsel, hentes med ett kall.
+  - Bare én serverinstans henter samme kurs om gangen (`price_fetch_state`).
+  - Sluttkurser regnes som foreløpige til 30 minutter etter stenging. Avslutningen av en liga venter på endelige sluttkurser.
+  - Kurser lagres slik de ble handlet. Grafene justeres for splitter når de vises.
+- **Er en kilde nede**, brukes siste lagrede kurs, og den vises med tidspunkt. Er den eldre enn 5 minutter mens børsen er åpen, kan man ikke handle (`PRICE_STALE`).
+- **Kursens alder vises alltid:** «Sanntid · kurs fra 14:32», «Forsinket ca. 15 min · kurs fra 14:32», «Ved stenging» eller «Sanntid (fiktiv)» med mock.
+- **Aksjer:** alle aksjer på Oslo Børs, Nasdaq og NYSE, ca. 5 500. Lista holdes oppdatert av jobben `instruments`. Søk og lister henter kurs bare for siden som vises (25 om gangen). «Dagens vinnere og tapere» velges blant kjente aksjer (`is_featured`) og aksjene som er handlet i ligaen.
+- **Børsene** (Oslo, Stockholm, København, Nasdaq og NYSE) har åpningstider definert i børsens lokale tid. Helligdager og halve dager ligger i `core` og legges inn i databasen av seed-skriptet. Alt lagres i UTC. Stockholm og København har ingen kilde ennå, og kan ikke velges når ekte kurser er på.
 
 ## Jobber
 
-Tre bakgrunnsjobber i `packages/db/src/jobs`. Alle **tåler å kjøres flere ganger** uten å endre noe.
+Fire bakgrunnsjobber i `packages/db/src/jobs`. Alle **tåler å kjøres flere ganger** uten å endre noe.
 
 | Jobb                  | Hva den gjør                                                                                                                                                                                                                                                                                                             | Hvorfor den er trygg å kjøre på nytt                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Selskapshendelser** | Henter splitter og utbytte fra `PriceProvider` for aksjer som er kjøpt i aktive eller nylig avsluttede ligaer, og lagrer dem. Bokfører dem når de er forfalt: splitt fra starten av første dag med ny kurs, utbytte på betalingsdagen til dem som eide aksjen ved starten av eks-datoen, omregnet med dagens valutakurs. | Låser medlemmet som ved handel, og en unik indeks tillater bare én transaksjon per medlem per hendelse.                                         |
 | **Avslutning**        | Verdsetter porteføljene på sluttidspunktet og lagrer plassering, verdi, avkastning og vinner(e). Bokfører først hendelser som forfalt før slutt. Utbytte som betales etter slutt, teller ikke.                                                                                                                           | Låser ligaen og gjør ingenting når resultatet finnes. Verdiene gjelder sluttidspunktet, så resultatet blir det samme uansett når jobben kjører. |
+| **Aksjelister**       | Henter listene over aksjer på Oslo Børs, Nasdaq og NYSE fra kildene. Nye aksjer legges til, de som forsvinner, merkes inaktive (slettes aldri). Bare med ekte kurser.                                                                                                                                                    | Sammenligner med det som finnes. En kilde som svikter, gjør at den børsen venter til neste kjøring.                                             |
 | **Snapshots**         | Lagrer verdi, kontanter og avkastning per medlem ved slutten av hver ferdige dag (norsk tid). Fyller inn opptil 31 dager som mangler.                                                                                                                                                                                    | Én rad per medlem per dag. Finnes raden, hoppes den over.                                                                                       |
 
-- **Kjøring:** én gang i døgnet kl. 06:30 norsk tid, i rekkefølgen over, via `GET /api/cron/daily` med `Authorization: Bearer <CRON_SECRET>`. Hver jobb har også sitt eget endepunkt.
+- **Kjøring:** én gang i døgnet kl. 06:30 norsk tid (selskapshendelser, avslutning, snapshots og til sist aksjelister), via `GET /api/cron/daily` med `Authorization: Bearer <CRON_SECRET>`. Hver jobb har også sitt eget endepunkt.
 - **Avslutning ved behov:** en liga som er slutt, avsluttes også med en gang noen åpner den eller forsiden.
 - **Lokalt:** `pnpm jobs` eller «Kjør jobber nå» på profilsiden (se README).
 
@@ -146,7 +166,7 @@ Tre bakgrunnsjobber i `packages/db/src/jobs`. Alle **tåler å kjøres flere gan
 | `holdings`                                                                | Hurtigbuffer for beholdning, bygges fra transaksjonene.                                                                                         |
 | `corporate_actions`                                                       | Splitter og utbytte rapportert av `PriceProvider`.                                                                                              |
 | `portfolio_snapshots`                                                     | Daglig verdi per medlem.                                                                                                                        |
-| `prices`, `fx_rates`                                                      | Til lagrede ekte kurser (fase 6). Tomme i dag.                                                                                                  |
+| `prices`, `fx_rates`, `latest_quotes`, `price_fetch_state`                | Mellomlagrede ekte kurser: sluttkurser og 5-minutterskurser, valutakurser fra USD, siste kurs per aksje, og når hver serie sist ble hentet.     |
 | `simulated_corporate_actions`                                             | Bare til utvikling: simulerte hendelser for mock-provideren.                                                                                    |
 
 Skjemaet skrives i Drizzle (`packages/db/src/schema`), og tabellene genereres som migrasjoner. Sikkerhet (RLS, rettigheter, triggere og SQL-funksjoner) skrives for hånd i egne migrasjoner. En migrasjon som er kjørt, endres aldri; man lager en ny.

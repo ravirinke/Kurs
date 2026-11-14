@@ -7,11 +7,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
 import { serverEnv } from "@/server/env";
-import { getPrices } from "@/server/prices";
+import { getMarketData, getPrices } from "@/server/prices";
 
 /*
  * Cron endpoints: GET /api/cron/daily (once a day at 06:30 Europe/Oslo), or one job:
- * /api/cron/corporate-actions, /api/cron/finalize, /api/cron/snapshots.
+ * /api/cron/corporate-actions, /api/cron/finalize, /api/cron/snapshots, /api/cron/instruments.
  * The caller sends `Authorization: Bearer <CRON_SECRET>` (what Vercel Cron sends). Every job
  * is idempotent, so calling one twice is harmless. Locally: `pnpm jobs`.
  * With ALLOW_TIME_TRAVEL=1, `?now=<ISO time>` runs the job as of another moment.
@@ -40,6 +40,9 @@ export async function GET(
     now = chosen;
   }
 
-  const report = await runJob(job, getDb(), await getPrices(now), { now });
+  const report = await runJob(job, getDb(), await getPrices(now), {
+    now,
+    marketData: getMarketData(),
+  });
   return NextResponse.json({ job, now: now.toISO(), ...report });
 }

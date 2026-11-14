@@ -77,13 +77,17 @@ export const instruments = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ticker: text("ticker").notNull(),
-    isin: text("isin").notNull().unique(),
+    /** Null when the source that listed the instrument gives none (Finnhub's US lists). */
+    isin: text("isin").unique(),
     name: text("name").notNull(),
     exchangeId: text("exchange_id")
       .notNull()
       .references(() => exchanges.id),
     currency: currencyEnum("currency").notNull(),
+    /** False once the instrument has left its source's list. Never deleted: trades refer to it. */
     isActive: boolean("is_active").notNull().default(true),
+    /** Well-known stocks, shown under "today's movers" (we cannot price thousands at once). */
+    isFeatured: boolean("is_featured").notNull().default(false),
   },
   (table) => [unique("instruments_exchange_ticker").on(table.exchangeId, table.ticker)],
 );

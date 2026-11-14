@@ -33,6 +33,7 @@ import { type CodedError, errorMessage } from "@/lib/errors";
 import { field, parseDecimalInput } from "@/lib/parse";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
+import { loadPricedExchanges } from "@/server/prices";
 import { requireProfile } from "@/server/session";
 
 export type FieldErrors = Partial<Record<string, string>>;
@@ -80,7 +81,8 @@ export async function createLeagueAction(
   const { user } = await requireProfile("/ligaer/ny");
   const now = await serverNow();
   const db = getDb();
-  const exchanges = await loadExchanges(db);
+  // Only exchanges we have prices for can be chosen (and are the defaults).
+  const exchanges = await loadPricedExchanges();
 
   const currencyInput = field(form, "currency");
   if (!isLeagueCurrency(currencyInput))

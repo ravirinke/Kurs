@@ -8,5 +8,7 @@ declare namespace NodeJS {
     SUPABASE_SECRET_KEY?: string;
     CRON_SECRET?: string;
     ALLOW_TIME_TRAVEL?: string;
+    PRICE_PROVIDER?: string;
+    FINNHUB_API_KEY?: string;
   }
 }

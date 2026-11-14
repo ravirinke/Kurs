@@ -22,6 +22,15 @@ export const serverEnv = {
   get cronSecret() {
     return required("CRON_SECRET", process.env.CRON_SECRET);
   },
+  /** "live" for real prices; anything else is the mock (see prices.ts). */
+  get priceProvider(): "mock" | "live" {
+    return process.env.PRICE_PROVIDER === "live" ? "live" : "mock";
+  },
+  /** Finnhub key for real-time US quotes. Without it, live prices all come from Yahoo. */
+  get finnhubApiKey(): string | undefined {
+    const key = process.env.FINNHUB_API_KEY;
+    return key === undefined || key === "" ? undefined : key;
+  },
   /** Dev-only "time machine" (see clock.ts). Never active in production builds. */
   get timeTravelEnabled() {
     return process.env.NODE_ENV !== "production" && process.env.ALLOW_TIME_TRAVEL === "1";

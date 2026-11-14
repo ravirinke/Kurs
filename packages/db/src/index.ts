@@ -4,6 +4,7 @@ export * from "./env";
 export * from "./jobs";
 export * from "./mappers";
 export * from "./mock-prices";
+export * from "./prices";
 export * from "./repositories/corporate-actions";
 export * from "./repositories/leagues";
 export * from "./repositories/ledger";

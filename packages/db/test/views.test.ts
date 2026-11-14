@@ -9,6 +9,7 @@ import {
   joinLeague,
   loadActivity,
   loadInstrumentDetail,
+  INSTRUMENT_PAGE_SIZE,
   loadInstrumentQuotes,
   loadInvitePreview,
   loadLeaderboard,
@@ -179,17 +180,51 @@ describe("market views", () => {
     const ola = await createTestUser(db, "Ola");
     const { leagueId } = await createTestLeague(db, ola, { allowedExchangeIds: ["XOSL"] });
     const prices = await provider(db);
+    const byName = await loadInstrumentQuotes(db, prices, { leagueId, search: "equino", now: T });
+    expect(byName?.items.map((entry) => entry.instrument.ticker)).toContain("EQNR");
+    // An exact ticker comes first, before names that merely contain the text.
+    const byTicker = await loadInstrumentQuotes(db, prices, { leagueId, search: "dnb", now: T });
+    expect(byTicker?.items[0]?.instrument.ticker).toBe("DNB");
+    // Apple is not on an exchange this league allows.
+    const other = await loadInstrumentQuotes(db, prices, { leagueId, search: "AAPL", now: T });
+    expect(other?.items.some((entry) => entry.instrument.ticker === "AAPL")).toBe(false);
+    // LIKE wildcards in the search are plain characters.
     expect(
-      (await loadInstrumentQuotes(db, prices, { leagueId, search: "equi", now: T }))?.map(
-        (entry) => entry.instrument.ticker,
-      ),
-    ).toEqual(["EQNR"]);
-    expect(await loadInstrumentQuotes(db, prices, { leagueId, search: "AAPL", now: T })).toEqual(
-      [],
-    );
-    expect(
-      (await loadInstrumentQuotes(db, prices, { leagueId, exchangeId: "XOSL", now: T }))?.length,
-    ).toBe(10);
+      (await loadInstrumentQuotes(db, prices, { leagueId, search: "%", now: T }))?.items,
+    ).toEqual([]);
+  });
+
+  it("lists an exchange one page at a time", async () => {
+    const ola = await createTestUser(db, "Ola");
+    const { leagueId } = await createTestLeague(db, ola, { allowedExchangeIds: ["XOSL", "XNAS"] });
+    const prices = await provider(db);
+    const first = await loadInstrumentQuotes(db, prices, { leagueId, exchangeId: "XOSL", now: T });
+    expect(first?.items.length).toBeGreaterThan(0);
+    expect(first?.items.length).toBeLessThanOrEqual(INSTRUMENT_PAGE_SIZE);
+    expect(first?.items.every((entry) => entry.exchange.id === "XOSL")).toBe(true);
+    const names = first?.items.map((entry) => entry.instrument.name.toLowerCase()) ?? [];
+    expect(names).toEqual([...names].sort());
+    // Far beyond the last page there is nothing, and nothing more.
+    const beyond = await loadInstrumentQuotes(db, prices, {
+      leagueId,
+      exchangeId: "XOSL",
+      page: 10_000,
+      now: T,
+    });
+    expect(beyond).toEqual({ items: [], hasMore: false });
+    // An exchange without a price source is not offered.
+    const priced = await loadInstrumentQuotes(db, prices, {
+      leagueId,
+      pricedExchangeIds: ["XNAS"],
+      now: T,
+    });
+    expect(priced?.items.every((entry) => entry.exchange.id === "XNAS")).toBe(true);
+    const home = await loadTradingHome(db, prices, {
+      leagueId,
+      pricedExchangeIds: ["XNAS"],
+      now: T,
+    });
+    expect(home?.exchanges.map((entry) => entry.exchange.id)).toEqual(["XNAS"]);
   });
 
   it("shows the stock page with periods and who owns it, following visibility", async () => {

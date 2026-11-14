@@ -148,6 +148,9 @@ export const nb = {
     SPLIT_PENDING:
       "Aksjen har nettopp hatt en aksjesplitt som ikke er ferdig bokført. Prøv igjen litt senere.",
     AMOUNT_TOO_SMALL: "Beløpet rekker ikke til én aksje med kurtasje.",
+    PRICE_STALE:
+      "Vi får ikke hentet en fersk kurs akkurat nå, så du kan ikke handle denne aksjen. Prøv igjen om litt.",
+    PRICE_UNAVAILABLE: "Vi har ingen kurs for denne aksjen akkurat nå. Prøv igjen om litt.",
     unknown: "Noe gikk galt. Prøv igjen.",
   },
   status: {
@@ -165,6 +168,8 @@ export const nb = {
     closesIn: (countdown: string) => `Åpen – stenger om ${countdown}`,
     opensIn: (countdown: string) => `Stengt – åpner om ${countdown}`,
     live: "Sanntid (fiktiv)",
+    realTime: (time: string) => `Sanntid \u00B7 kurs fra ${time}`,
+    delayed: (time: string) => `Forsinket ca. 15 min \u00B7 kurs fra ${time}`,
     atClose: "Ved stenging",
   },
   leagues: {
@@ -300,6 +305,9 @@ export const nb = {
     exchanges: "Børser",
     stocks: (count: number) => `${String(count)} aksjer`,
     noResults: "Ingen aksjer passer søket.",
+    nextPage: "Neste side",
+    previousPage: "Forrige side",
+    moversNote: "Blant kjente aksjer og aksjer som er handlet i ligaen.",
     buy: "Kjøp",
     sell: "Selg",
     youOwn: (quantity: string, value: string) => `Du eier ${quantity} stk · ${value}`,

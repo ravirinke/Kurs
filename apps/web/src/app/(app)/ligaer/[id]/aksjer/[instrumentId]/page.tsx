@@ -12,11 +12,12 @@ import { MarketStatusBadge } from "@/components/status-badges";
 import { TradeButtons } from "@/components/trade-sheet";
 import { t } from "@/i18n";
 import { currencyLabel, direction, formatMoney, formatNumber, formatQuantity } from "@/lib/format";
+import { priceNote } from "@/lib/price-note";
 import { cn } from "@/lib/utils";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
 import { requireLeagueMember } from "@/server/league-access";
-import { getPrices } from "@/server/prices";
+import { getPrices, pricesAreFictional } from "@/server/prices";
 
 export const metadata: Metadata = { title: t.trade.title };
 
@@ -86,8 +87,8 @@ export default async function InstrumentPage({
         </p>
         <p className="flex flex-wrap items-center gap-2 text-sm">
           <Change fraction={quote.changeFraction} amount={quote.change} />
-          <span className="text-muted-foreground">
-            {quote.source === "live" ? t.market.live : t.market.atClose}
+          <span className="text-muted-foreground" data-testid="price-note">
+            {priceNote(quote, { now, fictional: pricesAreFictional() })}
           </span>
         </p>
         <MarketStatusBadge status={status} now={now} />

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { setTime, signIn, uniqueEmail } from "./helpers";
+import { openTradeSheet, setTime, signIn, uniqueEmail } from "./helpers";
 
 /*
  * The brief's "done" checklist, end to end in a real browser:
@@ -61,7 +61,7 @@ test("create a league, invite, approve, trade NOK and USD stocks, see the table"
   await newbie.getByRole("searchbox").fill("Equinor");
   await newbie.getByRole("searchbox").press("Enter");
   await newbie.getByRole("link", { name: /Equinor/ }).click();
-  await newbie.getByRole("button", { name: "Kjøp", exact: true }).click();
+  await openTradeSheet(newbie, "Kjøp");
   await newbie.getByLabel("Antall").fill("10");
   await newbie.getByRole("button", { name: "Se pris" }).click();
   await expect(newbie.getByTestId("quote-calculation")).toHaveText(
@@ -73,7 +73,7 @@ test("create a league, invite, approve, trade NOK and USD stocks, see the table"
   // --- Ola buys a US stock: the estimate shows the FX conversion to NOK --------------------
   await ola.goto(`${leagueUrl}/handle?q=Apple`);
   await ola.getByRole("link", { name: /Apple/ }).click();
-  await ola.getByRole("button", { name: "Kjøp", exact: true }).click();
+  await openTradeSheet(ola, "Kjøp");
   await ola.getByLabel("Antall").fill("5");
   await ola.getByRole("button", { name: "Se pris" }).click();
   await expect(ola.getByTestId("quote-calculation")).toHaveText(
@@ -94,7 +94,7 @@ test("create a league, invite, approve, trade NOK and USD stocks, see the table"
   await ola.goto(`${leagueUrl}/handle?q=Equinor`);
   await ola.getByRole("link", { name: /Equinor/ }).click();
   await expect(ola.getByText(/Stengt – åpner om/)).toBeVisible();
-  await ola.getByRole("button", { name: "Kjøp", exact: true }).click();
+  await openTradeSheet(ola, "Kjøp");
   await ola.getByLabel("Antall").fill("1");
   await ola.getByRole("button", { name: "Se pris" }).click();
   await expect(ola.getByText(/Børsen er stengt\. Den åpner/)).toBeVisible();

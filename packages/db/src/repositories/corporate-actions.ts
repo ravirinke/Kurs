@@ -5,7 +5,7 @@ import {
   Money,
   type SplitAction,
 } from "@aksjeliga/core";
-import { and, asc, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DateTime } from "luxon";
 
 import type { Executor } from "../client";
@@ -112,6 +112,27 @@ export async function findCorporateActions(
       },
     ]),
   );
+}
+
+/**
+ * The stored actions in an instrument that one provider reported (its ids start with
+ * `idPrefix`), with the provider's id as `id`: the form a PriceProvider reports them in.
+ */
+export async function loadReportedCorporateActions(
+  db: Executor,
+  instrumentId: string,
+  idPrefix: string,
+): Promise<CorporateAction[]> {
+  const rows = await db
+    .select()
+    .from(corporateActions)
+    .where(
+      and(
+        eq(corporateActions.instrumentId, instrumentId),
+        sql`starts_with(${corporateActions.externalId}, ${idPrefix})`,
+      ),
+    );
+  return rows.map((row) => toCorporateAction(row, row.externalId));
 }
 
 export async function markCorporateActionsProcessed(

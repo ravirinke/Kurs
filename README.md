@@ -130,14 +130,16 @@ Stopp Supabase med `pnpm db:stop` når du er ferdig.
 
 **Tidsmaskin (bare lokalt):** under «Profil» kan du flytte appens klokke, for eksempel til en lørdag for å se at handel blir avvist når børsen er stengt, eller til en tirsdag kl. 15:00 når både Oslo Børs og Nasdaq er åpne. Et oransje banner viser at tidsmaskinen er på. Den er avslått i produksjon (`ALLOW_TIME_TRAVEL` i `.env`).
 
-**Jobber:** tre bakgrunnsjobber bokfører splitter og utbytte, avslutter ligaer som er ferdige (lagrer plassering og vinner) og lagrer daglige snapshots av porteføljeverdiene. I produksjon kjøres de av cron én gang i døgnet, kl. 06:30 norsk tid (`/api/cron/daily`, beskyttet med `CRON_SECRET`). Alle tåler å kjøres flere ganger. Lokalt kjører du dem selv:
+**Jobber:** fire bakgrunnsjobber bokfører splitter og utbytte, avslutter ligaer som er ferdige (lagrer plassering og vinner), lagrer daglige snapshots av porteføljeverdiene og holder lista over aksjer oppdatert (bare med ekte kurser). I produksjon kjøres de av cron én gang i døgnet, kl. 06:30 norsk tid (`/api/cron/daily`, beskyttet med `CRON_SECRET`). Alle tåler å kjøres flere ganger. Lokalt kjører du dem selv:
 
 - med **«Kjør jobber nå»** under «Profil» (bruker tidsmaskinens klokke), eller
-- med **`pnpm jobs`** mens `pnpm dev` kjører: `pnpm jobs` (alle), `pnpm jobs finalize` (én jobb: `corporate-actions`, `finalize` eller `snapshots`), `pnpm jobs --now 2026-11-02T06:30+01:00` (som om klokka var en annen).
+- med **`pnpm jobs`** mens `pnpm dev` kjører: `pnpm jobs` (alle), `pnpm jobs finalize` (én jobb: `corporate-actions`, `finalize`, `snapshots` eller `instruments`), `pnpm jobs --now 2026-11-02T06:30+01:00` (som om klokka var en annen).
 
 En liga som er slutt, avsluttes også med en gang noen åpner den, så vinneren vises uten å vente på jobben.
 
 **Simulere splitt og utbytte (bare lokalt):** under «Profil» kan du legge inn en splitt eller et utbytte på en aksje. Mock-kursene oppfører seg deretter, og jobbene bokfører hendelsen. Prøv for eksempel: kjøp Apple, legg inn en 1:10-splitt fra i morgen, flytt tidsmaskinen til i morgen og kjør jobbene. Du har da ti ganger så mange aksjer, og verdien er den samme.
+
+**Ekte kurser:** sett `PRICE_PROVIDER=live` og `ALLOW_TIME_TRAVEL=0` i `.env`, og eventuelt `FINNHUB_API_KEY` (gratis nøkkel fra finnhub.io) for sanntidskurser fra Nasdaq og NYSE. Start `pnpm dev` og kjør `pnpm jobs instruments` én gang for å hente alle aksjene på Oslo Børs, Nasdaq og NYSE (ca. 5 500). Oslo-kursene er ca. 15 minutter forsinket, og det står ved kursen. Stockholm og København har ingen kilde ennå. Testene bruker alltid mock-kursene.
 
 ## Skript
 

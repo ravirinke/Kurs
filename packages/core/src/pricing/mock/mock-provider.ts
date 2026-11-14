@@ -113,10 +113,19 @@ export class MockPriceProvider implements PriceProvider {
           price: this.priceAt(mock, exchange, time),
           at: time,
           source: "live",
+          checkedAt: time,
+          delayed: false,
         };
       }
       const close = this.closeAt(mock, exchange, time);
-      return { instrumentId, price: close.price, at: close.closedAt, source: "last_close" };
+      return {
+        instrumentId,
+        price: close.price,
+        at: close.closedAt,
+        source: "last_close",
+        checkedAt: time,
+        delayed: false,
+      };
     });
   }
 

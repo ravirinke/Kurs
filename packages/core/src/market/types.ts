@@ -39,7 +39,8 @@ export type InstrumentId = string;
 export interface Instrument {
   id: InstrumentId;
   ticker: string;
-  isin: string;
+  /** Null when the source that listed the instrument does not give one. */
+  isin: string | null;
   name: string;
   exchangeId: ExchangeId;
   /** Trading currency. */

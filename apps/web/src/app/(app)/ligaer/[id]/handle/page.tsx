@@ -16,7 +16,7 @@ import { formatMoney } from "@/lib/format";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
 import { requireLeagueMember } from "@/server/league-access";
-import { getPrices } from "@/server/prices";
+import { getPrices, pricedExchangeIds } from "@/server/prices";
 
 export const metadata: Metadata = { title: t.trade.title };
 
@@ -25,15 +25,17 @@ export default async function TradingPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bors?: string; q?: string }>;
+  searchParams: Promise<{ bors?: string; q?: string; side?: string }>;
 }) {
   const { id } = await params;
-  const { bors, q } = await searchParams;
+  const { bors, q, side } = await searchParams;
+  const page = Math.max(0, Number.parseInt(side ?? "1", 10) - 1 || 0);
   const { league, member } = await requireLeagueMember(id, `/ligaer/${id}/handle`);
   const now = await serverNow();
   const db = getDb();
   const prices = await getPrices(now);
-  const home = await loadTradingHome(db, prices, { leagueId: id, now });
+  const priced = { pricedExchangeIds: pricedExchangeIds() };
+  const home = await loadTradingHome(db, prices, { leagueId: id, now, ...priced });
   if (!home) notFound();
 
   const search = q?.trim() ?? "";
@@ -43,10 +45,19 @@ export default async function TradingPage({
       ? await loadInstrumentQuotes(db, prices, {
           leagueId: id,
           now,
+          page,
+          ...priced,
           ...(search ? { search } : {}),
           ...(exchange ? { exchangeId: exchange.exchange.id } : {}),
         })
       : null;
+  const pageHref = (target: number): Route => {
+    const query = new URLSearchParams();
+    if (search) query.set("q", search);
+    if (exchange) query.set("bors", exchange.exchange.id);
+    if (target > 0) query.set("side", String(target + 1));
+    return `/ligaer/${id}/handle?${query.toString()}` as Route;
+  };
   const toMover = (entry: (typeof home.winners)[number]): Mover => ({
     key: entry.instrument.id,
     label: entry.instrument.name,
@@ -92,14 +103,30 @@ export default async function TradingPage({
               <MarketStatusBadge status={exchange.status} now={now} />
             </div>
           )}
-          {list.length === 0 ? (
+          {list.items.length === 0 ? (
             <p className="text-muted-foreground">{t.trade.noResults}</p>
           ) : (
             <ul className="flex flex-col gap-1">
-              {list.map((entry) => (
+              {list.items.map((entry) => (
                 <InstrumentRow key={entry.instrument.id} entry={entry} leagueId={id} />
               ))}
             </ul>
+          )}
+          {(page > 0 || list.hasMore) && (
+            <nav className="flex items-center justify-between gap-3 text-sm">
+              {page > 0 ? (
+                <Link href={pageHref(page - 1)} className="text-primary">
+                  {t.trade.previousPage}
+                </Link>
+              ) : (
+                <span />
+              )}
+              {list.hasMore && (
+                <Link href={pageHref(page + 1)} className="text-primary">
+                  {t.trade.nextPage}
+                </Link>
+              )}
+            </nav>
           )}
           <Link href={`/ligaer/${id}/handle` as Route} className="text-primary text-sm">
             {t.nav.back}
@@ -107,7 +134,10 @@ export default async function TradingPage({
         </section>
       ) : (
         <>
-          <Movers winners={home.winners.map(toMover)} losers={home.losers.map(toMover)} />
+          <div className="flex flex-col gap-2">
+            <Movers winners={home.winners.map(toMover)} losers={home.losers.map(toMover)} />
+            <p className="text-muted-foreground text-xs">{t.trade.moversNote}</p>
+          </div>
           <section className="flex flex-col gap-2">
             <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
               {t.trade.exchanges}

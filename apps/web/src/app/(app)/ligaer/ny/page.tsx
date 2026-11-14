@@ -1,11 +1,10 @@
 import { APP_TIME_ZONE, DEFAULT_MINIMUM_FEE, DEFAULT_START_AMOUNT } from "@aksjeliga/core";
-import { loadExchanges } from "@aksjeliga/db";
 import type { Metadata } from "next";
 
 import { BackLink } from "@/components/back-link";
 import { t } from "@/i18n";
 import { serverNow } from "@/server/clock";
-import { getDb } from "@/server/db";
+import { loadPricedExchanges } from "@/server/prices";
 import { requireProfile } from "@/server/session";
 
 import { CreateLeagueForm } from "./create-league-form";
@@ -15,7 +14,7 @@ export const metadata: Metadata = { title: t.createLeague.title };
 export default async function CreateLeaguePage() {
   await requireProfile("/ligaer/ny");
   const now = await serverNow();
-  const exchanges = await loadExchanges(getDb());
+  const exchanges = await loadPricedExchanges();
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <BackLink href="/">{t.nav.myLeagues}</BackLink>

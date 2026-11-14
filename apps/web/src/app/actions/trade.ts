@@ -1,8 +1,18 @@
 "use server";
 
-import { maxQuantityForAmount, Money, type Quote, type TradeSide } from "@aksjeliga/core";
+import {
+  maxQuantityForAmount,
+  Money,
+  type Decimal,
+  PriceDataError,
+  type PriceProvider,
+  type PriceQuote,
+  type Quote,
+  type TradeSide,
+} from "@aksjeliga/core";
 import {
   createQuote,
+  type Database,
   executeTrade,
   loadInstrument,
   loadLeague,
@@ -15,9 +25,10 @@ import { t } from "@/i18n";
 import { errorMessage } from "@/lib/errors";
 import { formatFxRate, formatMoney, formatPrice, formatQuantity } from "@/lib/format";
 import { parseDecimalInput } from "@/lib/parse";
+import { priceNote } from "@/lib/price-note";
 import { serverNow } from "@/server/clock";
 import { getDb } from "@/server/db";
-import { getPrices } from "@/server/prices";
+import { getPrices, pricesAreFictional } from "@/server/prices";
 import { requireProfile } from "@/server/session";
 
 /** A quote as the trade sheet shows it: every number already formatted on the server. */
@@ -28,6 +39,8 @@ export interface QuoteView {
   /** Plain decimal string, to ask for a fresh quote with the same quantity. */
   quantityRaw: string;
   calculation: string;
+  /** What kind of price this is and when it is from ("Forsinket ca. 15 min · kurs fra 14:32"). */
+  priceNote: string;
   fee: string;
   total: string;
   /** Milliseconds until the price expires, measured on the server. */
@@ -38,7 +51,7 @@ export type QuoteResult = { ok: true; quote: QuoteView } | { ok: false; message:
 export type ConfirmResult =
   { ok: true; message: string } | { ok: false; message: string; retry: boolean };
 
-function describeQuote(quote: Quote, now: DateTime): QuoteView {
+function describeQuote(quote: Quote, price: PriceQuote, now: DateTime): QuoteView {
   const quantity = formatQuantity(quote.quantity);
   const sameCurrency = quote.price.currency === quote.grossAmount.currency;
   const calculation = sameCurrency
@@ -50,6 +63,7 @@ function describeQuote(quote: Quote, now: DateTime): QuoteView {
     quantity,
     quantityRaw: quote.quantity.toFixed(),
     calculation,
+    priceNote: priceNote(price, { now, fictional: pricesAreFictional() }),
     fee: `${quote.side === "buy" ? "+" : "−"} ${t.trade.sheet.fee} ${formatMoney(quote.fee)}`,
     total: formatMoney(quote.totalAmount),
     expiresInMs: Math.max(0, quote.expiresAt.toMillis() - now.toMillis()),
@@ -79,6 +93,31 @@ export async function requestQuote(input: {
 
   const value = parseDecimalInput(input.value);
   if (!value) return { ok: false, message: t.errors.INVALID_QUANTITY };
+  try {
+    return await priceOrder(input, { userId: user.id, value, now, db, prices });
+  } catch (error) {
+    // The price source has nothing for this instrument (new listing, source down).
+    if (error instanceof PriceDataError) return { ok: false, message: t.errors.PRICE_UNAVAILABLE };
+    throw error;
+  }
+}
+
+async function priceOrder(
+  input: {
+    leagueId: string;
+    instrumentId: string;
+    side: TradeSide;
+    mode: "quantity" | "amount";
+  },
+  context: {
+    userId: string;
+    value: Decimal;
+    now: DateTime;
+    db: Database;
+    prices: PriceProvider;
+  },
+): Promise<QuoteResult> {
+  const { value, now, db, prices } = context;
   let quantity = value;
 
   if (input.mode === "amount") {
@@ -101,13 +140,15 @@ export async function requestQuote(input: {
   }
 
   const result = await createQuote(db, prices, {
-    userId: user.id,
+    userId: context.userId,
     leagueId: input.leagueId,
     order: { type: "market", side: input.side, instrumentId: input.instrumentId, quantity },
     now,
   });
   if (!result.ok) return { ok: false, message: firstMessage(result.rejections) };
-  return { ok: true, quote: describeQuote(result.quote, now) };
+  // The same price the quote was built on: the provider remembers it for this request.
+  const price = await prices.getQuote(input.instrumentId, now);
+  return { ok: true, quote: describeQuote(result.quote, price, now) };
 }
 
 /** Step 2: execute the quote the user saw, at exactly that price. */

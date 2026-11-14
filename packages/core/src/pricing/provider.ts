@@ -12,12 +12,36 @@ export interface PriceQuote {
   at: DateTime;
   /** "last_close" when the exchange is closed. */
   source: "live" | "last_close";
+  /**
+   * When the source last confirmed this price. `at` is the time of the last trade, which can
+   * be long ago for a quiet stock; this tells how old our knowledge is.
+   */
+  checkedAt: DateTime;
+  /** True when the source publishes this exchange's prices with a delay (typically 15 min). */
+  delayed: boolean;
+}
+
+/** A live price not confirmed by its source for this long is too old to trade on. */
+export const MAX_LIVE_PRICE_AGE_MINUTES = 5;
+
+/**
+ * True when a live price is too old to lock a trade on (the source is down or slow). A last
+ * close is never stale: trading is closed then anyway.
+ */
+export function isPriceStale(quote: PriceQuote, now: DateTime): boolean {
+  if (quote.source !== "live") return false;
+  return now.toMillis() - quote.checkedAt.toMillis() > MAX_LIVE_PRICE_AGE_MINUTES * 60_000;
 }
 
 export interface ClosingPrice {
   instrumentId: InstrumentId;
   price: Money;
   closedAt: DateTime;
+  /**
+   * True while the source may still change this close (just after the bell: the closing
+   * auction, a delayed feed). Fine to show, but a final result must wait for the real one.
+   */
+  provisional?: boolean;
 }
 
 /** Spacing between points in a price history. */

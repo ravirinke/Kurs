@@ -1,6 +1,8 @@
 import {
   computeFinalStandings,
+  type League,
   needsFinalization,
+  PriceDataError,
   type PriceProvider,
   replayUntil,
 } from "@aksjeliga/core";
@@ -35,6 +37,7 @@ export async function finalizeLeagueIfDue(
   const before = await loadLeague(db, leagueId);
   if (!before || !needsFinalization(before, now)) return false;
   await processCorporateActions(db, provider, { now, leagueIds: [leagueId] });
+  if (!(await closesAreFinal(db, provider, before))) return false;
 
   return db.transaction(async (tx) => {
     // Two runs at once (the daily job and someone opening the league): the second waits
@@ -78,6 +81,28 @@ export async function finalizeLeagueIfDue(
 }
 
 /**
+ * False while a closing price the result depends on can still change (the league ended a
+ * moment ago and the source has not settled). The result is stored once and never
+ * recomputed, so it waits: the next run, or the next person opening the league, tries again.
+ */
+async function closesAreFinal(
+  db: Database,
+  provider: PriceProvider,
+  league: League,
+): Promise<boolean> {
+  const events = await loadLeagueEvents(db, league);
+  const held = new Set<string>();
+  for (const memberEvents of events.values()) {
+    const state = replayUntil(league.currency, memberEvents, league.endsAt);
+    for (const instrumentId of state.positions.keys()) held.add(instrumentId);
+  }
+  const closes = await Promise.all(
+    [...held].map((instrumentId) => provider.getLastClose(instrumentId, league.endsAt)),
+  );
+  return closes.every((close) => !close.provisional);
+}
+
+/**
  * Finalizes every league that has ended without a stored result. `userId` limits it to the
  * leagues a user is in (the home page). Returns how many were finalized.
  */
@@ -105,8 +130,15 @@ export async function finalizeDueLeagues(
   );
   let finalized = 0;
   for (const league of due) {
-    if (await finalizeLeagueIfDue(db, provider, { leagueId: league.id, now: input.now }))
-      finalized += 1;
+    try {
+      if (await finalizeLeagueIfDue(db, provider, { leagueId: league.id, now: input.now }))
+        finalized += 1;
+    } catch (error) {
+      // No price for something the league holds: never freeze a result on a guess. The
+      // league stays open for the next run, and the others are still finalized.
+      if (!(error instanceof PriceDataError)) throw error;
+      console.warn(`[jobs] League ${league.id} not finalized: ${error.message}`);
+    }
   }
   return finalized;
 }

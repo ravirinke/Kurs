@@ -9,6 +9,7 @@ import {
   type League,
   type LedgerEvent,
   lockFxRate,
+  PriceDataError,
   type PriceProvider,
   quantityHeldBefore,
   startOfExchangeDay,
@@ -107,7 +108,16 @@ export async function processCorporateActions(
   );
   const reported = (
     await Promise.all(
-      instruments.map((instrument) => provider.getCorporateActions(instrument.id, from, now)),
+      instruments.map(async (instrument) => {
+        try {
+          return await provider.getCorporateActions(instrument.id, from, now);
+        } catch (error) {
+          // One instrument without a source must not stop the others; the next run asks again.
+          if (!(error instanceof PriceDataError)) throw error;
+          console.warn(`[jobs] No corporate actions for ${instrument.ticker}: ${error.message}`);
+          return [];
+        }
+      }),
     )
   ).flat();
   const stored = await storeCorporateActions(db, reported);

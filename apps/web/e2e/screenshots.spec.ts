@@ -1,6 +1,6 @@
 import { devices, expect, test } from "@playwright/test";
 
-import { setTime, signIn } from "./helpers";
+import { openTradeSheet, setTime, signIn } from "./helpers";
 
 /*
  * Not a test of behaviour: walks through the main pages and saves screenshots for design
@@ -53,7 +53,7 @@ test("screenshots of the main pages", async ({ browser }, testInfo) => {
   await page.getByRole("link", { name: /Apple/ }).click();
   await page.waitForURL(/\/aksjer\//);
   await shot("07-stock");
-  await page.getByRole("button", { name: "Kjøp", exact: true }).click();
+  await openTradeSheet(page, "Kjøp");
   await page.getByLabel("Antall").fill("3");
   await page.getByRole("button", { name: "Se pris" }).click();
   await expect(page.getByTestId("quote-total")).toBeVisible();

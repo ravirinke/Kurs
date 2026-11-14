@@ -1,8 +1,8 @@
 /*
  * Runs a cron job against the running app, exactly as the scheduler will in production:
  *
- *   pnpm jobs                       the daily run (corporate actions, finalization, snapshots)
- *   pnpm jobs finalize              one job: corporate-actions | finalize | snapshots
+ *   pnpm jobs                       the daily run (corporate actions, finalization, snapshots, instruments)
+ *   pnpm jobs finalize              one job: corporate-actions | finalize | snapshots | instruments
  *   pnpm jobs daily --now 2026-11-02T06:30+01:00   as of another moment (ALLOW_TIME_TRAVEL=1)
  *
  * Needs `pnpm dev` running. Reads APP_URL and CRON_SECRET from the repo-root .env.

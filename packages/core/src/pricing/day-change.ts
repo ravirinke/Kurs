@@ -11,6 +11,8 @@ export interface PriceWithDayChange {
   price: Money;
   source: "live" | "last_close";
   at: DateTime;
+  /** The source publishes this exchange's prices with a delay. */
+  delayed: boolean;
   /** The close before the current (or most recent) session. */
   previousClose: Money;
   change: Money;
@@ -42,6 +44,7 @@ export async function priceWithDayChange(
     price: quote.price,
     source: quote.source,
     at: quote.at,
+    delayed: quote.delayed,
     previousClose: previous.price,
     change,
     changeFraction: change.ratioTo(previous.price),

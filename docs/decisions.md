@@ -158,3 +158,29 @@ Technical (phase 5):
 - **If something must run more often later:** the cron endpoint is plain HTTP with `CRON_SECRET`, so an external scheduler (GitHub Actions `schedule`, cron-job.org or Supabase `pg_cron` + `pg_net`) can call it. Not needed for prices.
 - **Sources:** Nasdaq has an API (product owner). **Oslo Børs is the hard one** and still open. Candidates to evaluate: Yahoo's unofficial endpoints (`.OL` tickers), Euronext's public pages (Oslo Børs is part of Euronext), or a data API with a free tier that covers Oslo. Stockholm, Copenhagen and NYSE are still not looked at.
 - **Risks to check early in phase 6:** unofficial sources can change or break without notice and their terms usually forbid automated use (acceptable for a private friends league, not for anything commercial); Yahoo often blocks requests from cloud IPs, so test from Vercel, not only locally; free Oslo data is often delayed (typically 15 minutes), which the product owner must decide how to handle (accept and show the delay, or not).
+
+## 2026-11-14 – Phase 6: real prices (planned with the product owner)
+
+- **Exchanges with real prices: Oslo Børs, Nasdaq and NYSE.** Stockholm and Copenhagen have no source yet: with real prices they cannot be chosen for a new league and their shares are not listed. Adding an exchange means adding it to `EXCHANGE_SOURCES` in `packages/db/src/prices/live-market-data.ts`.
+- **Every share on those exchanges** can be traded (ordinary shares, ADRs and REITs; no funds, warrants, units or preference shares), about 5 500. The lists are synchronised from the sources by the new job `instruments`, not typed in by hand. Shares that leave a list become inactive, never deleted.
+- **Delayed Oslo prices are accepted.** Yahoo publishes Oslo Børs about 15 minutes late. We trust friends not to exploit it and show the age of every price ("Forsinket ca. 15 min · kurs fra 14:32"). A delayed order queue was considered and rejected: about as much work as the rest of the phase, and it breaks "confirm the exact price".
+- **Dividends are paid on the ex-date** (decided by Claude, delegated by the product owner). The sources give the ex-date but no pay date, and the price drops on the ex-date, so paying then keeps the portfolio value continuous. The phase-5 rule "dividends paid after the league's end do not count" therefore becomes "ex-date after the end".
+- **Sources, as tested with `packages/db/scripts/probe-sources.ts` on 2026-11-14:**
+  - Finnhub free plan: real-time US quotes and US symbol lists (with MIC, no ISIN). Everything else we tried (Oslo quotes, the Oslo list, candles, splits, dividends, FX) answers 403 "You don't have access".
+  - Yahoo's chart endpoints (unofficial, no key): Oslo and US prices, 5-minute and daily history, FX (`USDNOK=X`), splits and dividends (dividends in the trading currency). Batched quotes through `/v7/finance/spark`.
+  - Euronext's public download of the Oslo Børs list (with ISIN).
+- **Routing:** US quotes from Finnhub (up to 15 at a time, its limit is 60 calls a minute), everything Finnhub does not answer goes to Yahoo; Oslo quotes, all history, FX and corporate actions from Yahoo; lists from Finnhub (US) and Euronext (Oslo). Without `FINNHUB_API_KEY`, Yahoo serves the US quotes too.
+- **Read-through cache in Postgres** (`CachedPriceProvider`), no cron for prices (Vercel's free plan runs cron once a day):
+  - a live quote or FX rate is fetched again when older than 60 seconds; quotes asked for in the same request are batched into one call to the source
+  - `price_fetch_state` records what was fetched when, and an atomic claim (`insert … on conflict … where attempted_at <= now − 60 s`) makes sure only one server instance fetches a series at a time and a failing source is asked at most once a minute
+  - a close is **provisional** until fetched at least 30 minutes after the bell (closing auction, delayed feed); finalization waits for final closes, since a result is never recomputed
+  - stored prices are **as traded**, not adjusted for later splits (Yahoo's split adjustment is undone), so a stored row never changes; charts are adjusted when read
+  - FX is stored from USD only; other pairs are derived
+  - 5-minute bars are kept for 30 days (pruned by the daily run)
+- **Trading needs a fresh price:** a quote is rejected (`PRICE_STALE`) when the source has not confirmed the price for more than 5 minutes (the source is down). Freshness is when we last asked, not when the share last traded, so quiet or delayed shares can still be traded.
+- **No network inside the member lock:** `executeTrade` warms the provider before locking the member row.
+- **Lists of thousands:** search runs in the database and lists are paged (25 per page); "today's movers" are picked among the well-known shares (`instruments.is_featured`, the seed catalogue) and the shares traded in the league.
+- **Jobs must survive a missing price:** one instrument without a source does not stop the others. A league whose holdings cannot be priced is not finalized (the next run tries again), and a snapshot gap is filled later.
+- **One daily run:** the instrument sync runs at the end of the existing daily run (06:30). Measured locally with real sources: the first daily run took 4.4 s (including the full sync of 5 463 instruments), the next 1.4 s. Far below Vercel's limit.
+- **Calendar check:** `scripts/check-calendar.ts` compares our calendar with the days Equinor, Apple and JPMorgan actually traded in 2026: all 220 Oslo and 219 US sessions match. The 2027 dates and the Stockholm/Copenhagen calendars are still unverified. When the source has a price on a day our calendar says is closed, the server logs a warning.
+- **Not checked yet:** whether Yahoo answers requests from Vercel's servers (it often blocks cloud IPs). Test early in phase 7; the adapters make it possible to swap the source.

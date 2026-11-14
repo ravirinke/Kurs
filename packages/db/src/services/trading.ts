@@ -6,10 +6,12 @@ import {
   deriveLeagueStatus,
   executeQuote,
   type Instrument,
+  isPriceStale,
   type LedgerEvent,
   type LedgerState,
   type Money,
   type Order,
+  PriceDataError,
   type PriceProvider,
   quantityHeldBefore,
   type Quote,
@@ -27,7 +29,7 @@ import type { DateTime } from "luxon";
 
 import type { Database, Executor } from "../client";
 import { CORPORATE_ACTION_LOOKBACK_DAYS, hasBooked } from "../jobs/corporate-actions";
-import { quoteToRow, toDbTime, toQuote } from "../mappers";
+import { quoteToRow, toDateTime, toDbTime, toQuote } from "../mappers";
 import { findCorporateActions } from "../repositories/corporate-actions";
 import { findMember, loadLeague, lockMember } from "../repositories/leagues";
 import { appendEvent, loadMemberEvents, writeMemberCache } from "../repositories/ledger";
@@ -41,7 +43,9 @@ export type ServiceRejection =
   | { code: "QUOTE_NOT_FOUND" }
   | { code: "QUOTE_ALREADY_USED" }
   | { code: "IDEMPOTENCY_KEY_REUSED" }
-  | { code: "SPLIT_PENDING" };
+  | { code: "SPLIT_PENDING" }
+  /** The price source has not confirmed the price recently enough to trade on it. */
+  | { code: "PRICE_STALE" };
 
 export type TradingRejection = TradeRejection | ServiceRejection;
 
@@ -158,6 +162,7 @@ export async function createQuote(
     provider.getQuote(instrument.id, now),
     provider.getFxRate(instrument.currency, league.currency, now),
   ]);
+  if (isPriceStale(price, now)) return { ok: false, rejections: [{ code: "PRICE_STALE" }] };
   const quote = buildQuote({
     id: randomUUID(),
     leagueId: league.id,
@@ -183,6 +188,45 @@ export async function createQuote(
   return { ok: true, quote };
 }
 
+/**
+ * Asks the PriceProvider for everything `executeTrade` will need, before the member row is
+ * locked. A real provider may have to fetch from a slow source; this way it does that here,
+ * and inside the lock it answers from what it already holds. Best effort: a failure is
+ * reported by the locked path, which asks again.
+ */
+async function warmPrices(
+  db: Database,
+  provider: PriceProvider,
+  input: { quoteId: string; now: DateTime },
+): Promise<void> {
+  const [row] = await db.select().from(quotes).where(eq(quotes.id, input.quoteId));
+  if (!row || row.usedAt) return;
+  const [league, instrument] = await Promise.all([
+    loadLeague(db, row.leagueId),
+    loadInstrument(db, row.instrumentId),
+  ]);
+  if (!league || !instrument) return;
+  try {
+    const events = await loadMemberEvents(db, row.memberId, league.currency);
+    await hasPendingSplit(db, provider, {
+      instrument,
+      events,
+      currency: league.currency,
+      now: input.now,
+    });
+    if (row.side === "buy" && league.maxPositionShare !== null)
+      await portfolioValueAt(
+        db,
+        provider,
+        replay(league.currency, events),
+        league.currency,
+        toDateTime(row.createdAt),
+      );
+  } catch (error) {
+    if (!(error instanceof PriceDataError)) throw error;
+  }
+}
+
 export type ExecuteTradeResult =
   | { ok: true; transactionId: string; replayed: boolean; quote: Quote }
   | { ok: false; rejections: TradingRejection[] };
@@ -200,6 +244,7 @@ export async function executeTrade(
   provider: PriceProvider,
   input: { userId: string; quoteId: string; idempotencyKey: string; now: DateTime },
 ): Promise<ExecuteTradeResult> {
+  await warmPrices(db, provider, input);
   return db.transaction(async (tx) => {
     const [unlocked] = await tx.select().from(quotes).where(eq(quotes.id, input.quoteId));
     if (!unlocked) return { ok: false, rejections: [{ code: "QUOTE_NOT_FOUND" }] };

@@ -1,4 +1,5 @@
 import { EXCHANGES } from "@aksjeliga/core";
+import { inArray } from "drizzle-orm";
 
 import type { Database } from "../client";
 import { exchangeHolidays, exchanges, exchangeTradingHours, instruments } from "../schema";
@@ -48,7 +49,22 @@ export async function seedReferenceData(db: Database): Promise<void> {
       .onConflictDoNothing();
     await tx
       .insert(instruments)
-      .values(INSTRUMENT_CATALOGUE.map(({ mockBasePrice: _price, ...instrument }) => instrument))
+      .values(
+        INSTRUMENT_CATALOGUE.map(({ mockBasePrice: _price, ...instrument }) => ({
+          ...instrument,
+          isFeatured: true,
+        })),
+      )
       .onConflictDoNothing();
+    // The catalogue is our list of well-known stocks, also for rows that existed already.
+    await tx
+      .update(instruments)
+      .set({ isFeatured: true })
+      .where(
+        inArray(
+          instruments.isin,
+          INSTRUMENT_CATALOGUE.map((instrument) => instrument.isin),
+        ),
+      );
   });
 }

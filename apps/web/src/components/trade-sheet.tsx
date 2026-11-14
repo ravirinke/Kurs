@@ -255,6 +255,9 @@ function TradeSheet({
               <p className="tabular-nums" data-testid="quote-calculation">
                 {quote.calculation}
               </p>
+              <p className="text-muted-foreground text-xs" data-testid="quote-price-note">
+                {quote.priceNote}
+              </p>
               <p className="text-muted-foreground tabular-nums">{quote.fee}</p>
               <p className="flex items-baseline justify-between border-t pt-2">
                 <span className="font-medium">

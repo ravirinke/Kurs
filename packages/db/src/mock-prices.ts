@@ -26,7 +26,9 @@ export function buildMockPriceProvider(options: {
     exchanges: options.exchanges,
     instruments: options.instruments.map((instrument) => ({
       instrument,
-      basePrice: basePriceByIsin.get(instrument.isin) ?? DEFAULT_MOCK_BASE_PRICE,
+      basePrice:
+        (instrument.isin === null ? undefined : basePriceByIsin.get(instrument.isin)) ??
+        DEFAULT_MOCK_BASE_PRICE,
     })),
     ...(options.corporateActions ? { corporateActions: options.corporateActions } : {}),
   });

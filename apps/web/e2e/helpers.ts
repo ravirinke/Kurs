@@ -62,3 +62,15 @@ export async function setTime(context: BrowserContext, iso: string): Promise<voi
 export function uniqueEmail(name: string): string {
   return `${name}-${String(Date.now())}@test.no`;
 }
+
+/**
+ * Opens the trade sheet with the "Kjøp" or "Selg" button. A click that lands before React
+ * has hydrated the page (right after a full page load in dev mode) does nothing, so the
+ * click is repeated until the sheet is open.
+ */
+export async function openTradeSheet(page: Page, side: "Kjøp" | "Selg"): Promise<void> {
+  await expect(async () => {
+    await page.getByRole("button", { name: side, exact: true }).click();
+    await expect(page.getByLabel("Antall")).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
